@@ -38,7 +38,7 @@ function normalizeCollectorName(name: string): string {
 
 const SF_RIG_PATTERN = /^EGO-PROD-(2|3|4|5|6|9)$/i;
 
-const ADMIN_NAMES = new Set(["tony a", "travis b", "veronika t"]);
+const ADMIN_NAMES = new Set(["keith"]);
 
 function isSFRig(rigId: string): boolean {
   return SF_RIG_PATTERN.test(rigId.trim());

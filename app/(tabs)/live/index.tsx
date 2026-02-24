@@ -138,56 +138,152 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
   );
 }
 
-function LiveClock() {
+function LiveClock({ size, showMs }: { size?: 'small' | 'large'; showMs?: boolean }) {
   const { colors } = useTheme();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), 10);
+    const id = setInterval(() => setTime(new Date()), showMs !== false ? 10 : 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [showMs]);
 
   const hh = String(time.getHours()).padStart(2, "0");
   const mm = String(time.getMinutes()).padStart(2, "0");
   const ss = String(time.getSeconds()).padStart(2, "0");
   const ms = String(Math.floor(time.getMilliseconds() / 10)).padStart(2, "0");
 
+  const isSmall = size === 'small';
+
   return (
-    <Text style={[clockStyles.clock, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>
+    <Text style={[isSmall ? clockStyles.clockSmall : clockStyles.clock, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>
       {hh}:{mm}:{ss}
-      <Text style={[clockStyles.ms, { color: colors.textMuted, fontFamily: FONT_MONO }]}>.{ms}</Text>
+      {showMs !== false && (
+        <Text style={[isSmall ? clockStyles.msSmall : clockStyles.ms, { color: colors.textMuted, fontFamily: FONT_MONO }]}>.{ms}</Text>
+      )}
     </Text>
   );
 }
 
-function SunProgressBar() {
-  const [sunData, setSunData] = useState({ progress: 0, color: '#2a2a4e' });
+function getSkyColors(hour: number): { left: string; right: string; accent: string; phase: string } {
+  if (hour < 5) return { left: '#0F172A', right: '#1E1B4B', accent: '#818CF8', phase: 'night' };
+  if (hour < 6.5) return { left: '#1E1B4B', right: '#F97316', accent: '#FB923C', phase: 'dawn' };
+  if (hour < 8) return { left: '#F97316', right: '#FBBF24', accent: '#F59E0B', phase: 'sunrise' };
+  if (hour < 11) return { left: '#38BDF8', right: '#7DD3FC', accent: '#0EA5E9', phase: 'morning' };
+  if (hour < 14) return { left: '#0EA5E9', right: '#38BDF8', accent: '#0284C7', phase: 'midday' };
+  if (hour < 17) return { left: '#38BDF8', right: '#60A5FA', accent: '#3B82F6', phase: 'afternoon' };
+  if (hour < 19) return { left: '#F97316', right: '#EC4899', accent: '#F43F5E', phase: 'sunset' };
+  if (hour < 20.5) return { left: '#7C3AED', right: '#1E1B4B', accent: '#A855F7', phase: 'dusk' };
+  return { left: '#1E1B4B', right: '#0F172A', accent: '#6366F1', phase: 'night' };
+}
+
+function SkyDayTracker() {
+  const { colors, isDark } = useTheme();
+  const [now, setNow] = useState(new Date());
+  const sunSlide = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      const hour = now.getHours() + now.getMinutes() / 60;
-      const progress = Math.max(0, Math.min(1, (hour - 6) / 14));
-      let color = '#2a2a4e';
-      if (hour >= 6 && hour < 7.5) color = '#F97316';
-      else if (hour >= 7.5 && hour < 10) color = '#60A5FA';
-      else if (hour >= 10 && hour < 14) color = '#38BDF8';
-      else if (hour >= 14 && hour < 17) color = '#60A5FA';
-      else if (hour >= 17 && hour < 19) color = '#F97316';
-      else if (hour >= 19 && hour < 20) color = '#A855F7';
-      setSunData({ progress, color });
-    };
+    const update = () => setNow(new Date());
     update();
-    const id = setInterval(update, 60000);
+    const id = setInterval(update, 30000);
     return () => clearInterval(id);
   }, []);
 
+  const hour = now.getHours() + now.getMinutes() / 60;
+  const progress = Math.max(0, Math.min(1, (hour - 5) / 17));
+  const sky = getSkyColors(hour);
+  const isDay = hour >= 6 && hour < 19.5;
+
+  useEffect(() => {
+    Animated.spring(sunSlide, {
+      toValue: progress,
+      speed: 4,
+      bounciness: 2,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, sunSlide]);
+
+  const sliderLeft = sunSlide.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['2%', '88%'],
+  });
+
+  const trackBg = isDark ? '#1A1A2E' : '#E8E4D6';
+
   return (
-    <View style={{ width: 60, height: 1.5, borderRadius: 1, overflow: "hidden" as const, backgroundColor: 'rgba(128,128,128,0.12)' }}>
-      <View style={{ width: `${Math.max(sunData.progress * 100, 3)}%` as any, height: 1.5, backgroundColor: sunData.color, borderRadius: 1 }} />
+    <View style={skyStyles.container}>
+      <View style={skyStyles.labelRow}>
+        <Sun size={13} color={isDark ? '#FBBF24' : '#D97706'} />
+        <Text style={[skyStyles.timeLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+          {sky.phase.toUpperCase()}
+        </Text>
+        <Moon size={13} color={isDark ? '#818CF8' : '#6366F1'} />
+      </View>
+      <View style={[skyStyles.track, { backgroundColor: trackBg }]}>
+        <View style={[skyStyles.gradientFill, { backgroundColor: sky.left, width: `${Math.max(progress * 100, 2)}%` as any }]}>
+          <View style={[skyStyles.gradientOverlay, { backgroundColor: sky.right, opacity: 0.5 }]} />
+        </View>
+        <Animated.View style={[skyStyles.slider, { left: sliderLeft, backgroundColor: sky.accent, shadowColor: sky.accent }]}>
+          {isDay ? (
+            <Sun size={12} color="#FFFFFF" />
+          ) : (
+            <Moon size={12} color="#FFFFFF" />
+          )}
+        </Animated.View>
+      </View>
     </View>
   );
 }
+
+const skyStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  labelRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingHorizontal: 4,
+  },
+  timeLabel: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    letterSpacing: 2,
+  },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'visible' as const,
+    position: 'relative' as const,
+  },
+  gradientFill: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden' as const,
+  },
+  gradientOverlay: {
+    position: 'absolute' as const,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '50%' as any,
+    borderRadius: 3,
+  },
+  slider: {
+    position: 'absolute' as const,
+    top: -9,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+});
 
 interface TickerSegment {
   id: string;
@@ -644,10 +740,6 @@ export default function LiveScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
-      <View style={styles.clockRow}>
-        <LiveClock />
-      </View>
-
       <View style={styles.brandRow}>
         <Animated.Text
           style={[
@@ -661,8 +753,9 @@ export default function LiveScreen() {
         >
           T A S K F L O W
         </Animated.Text>
-        <SunProgressBar />
       </View>
+
+      <SkyDayTracker />
 
       <View style={[styles.header, {
         backgroundColor: isDark ? '#151518' : '#FFFEF6',
@@ -670,9 +763,13 @@ export default function LiveScreen() {
         borderColor: isDark ? '#2A2A30' : '#DDD8C6',
       }]}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>SYSTEM · LIVE</Text>
+          <Text style={[styles.headerUserLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>USER</Text>
+          <Text style={[styles.headerUserName, { color: colors.textPrimary, fontFamily: FONT_MONO }]} numberOfLines={1}>
+            {selectedCollectorName || 'Not Selected'}
+          </Text>
         </View>
         <View style={styles.headerRight}>
+          <LiveClock size="small" showMs={false} />
           <View style={[
             styles.livePill,
             {
@@ -682,12 +779,9 @@ export default function LiveScreen() {
           ]}>
             <View style={[styles.statusDot, { backgroundColor: isOnline ? livePillColor : colors.cancel }]} />
             <Text style={[styles.liveText, { color: isOnline ? livePillColor : colors.cancel, fontFamily: FONT_MONO }]}>
-              {isOnline ? "LIVE" : "OFF"}
+              {isOnline ? "ONLINE" : "OFF"}
             </Text>
           </View>
-          <Text style={[styles.rigCount, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
-            {totalRigCount} RIGS
-          </Text>
         </View>
       </View>
 
@@ -882,6 +976,16 @@ const clockStyles = StyleSheet.create({
     letterSpacing: 0.5,
     fontWeight: "400" as const,
   },
+  clockSmall: {
+    fontSize: 15,
+    letterSpacing: 1.5,
+    fontWeight: "800" as const,
+  },
+  msSmall: {
+    fontSize: 10,
+    letterSpacing: 0.3,
+    fontWeight: "400" as const,
+  },
 });
 
 const ntStyles = StyleSheet.create({
@@ -926,20 +1030,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  clockRow: {
-    alignItems: "center",
-    paddingTop: 6,
-    paddingBottom: 4,
-  },
   brandRow: {
     alignItems: "center",
-    paddingBottom: 10,
-    gap: 6,
+    paddingTop: 8,
+    paddingBottom: 2,
   },
   brandName: {
-    fontSize: 12,
-    fontWeight: "800" as const,
-    letterSpacing: 6,
+    fontSize: 20,
+    fontWeight: "900" as const,
+    letterSpacing: 10,
   },
   header: {
     flexDirection: "row",
@@ -956,11 +1055,19 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
-  headerLeft: {},
-  headerTitle: {
-    fontSize: 13,
-    fontWeight: "900" as const,
+  headerLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  headerUserLabel: {
+    fontSize: 8,
+    fontWeight: "700" as const,
     letterSpacing: 2,
+  },
+  headerUserName: {
+    fontSize: 14,
+    fontWeight: "900" as const,
+    letterSpacing: 0.5,
   },
   headerRight: {
     alignItems: "flex-end",
@@ -985,12 +1092,7 @@ const styles = StyleSheet.create({
     fontWeight: "800" as const,
     letterSpacing: 1.5,
   },
-  rigCount: {
-    fontSize: 9,
-    letterSpacing: 1,
-    fontWeight: "600" as const,
-    marginTop: 2,
-  },
+
   quickActions: {
     flexDirection: "row",
     paddingHorizontal: 12,
