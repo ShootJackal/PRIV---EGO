@@ -19,25 +19,13 @@ const FONT_MONO = Platform.select({
 
 const ALL_LINES = [
   "Convincing rigs to cooperate...",
-  "Making sure both hands are in frame...",
-  "Raising daily collection hours to 7hrs...",
-  "Making EGO RIGs heavier...",
   "Calibrating the vibes...",
-  "Checking if Travis remembered his badge...",
-  "Polishing camera lenses remotely...",
-  "Untangling USB cables mentally...",
-  "Deploying collection drones... jk...",
   "Running rig diagnostics... beep boop...",
   "Warming up the data pipeline...",
-  "Asking Redash nicely for data...",
   "Syncing with the mothership...",
   "Counting hours... carry the 1...",
-  "Reminding rigs they signed a contract...",
   "Bribing the servers with electricity...",
-  "Negotiating with the spreadsheet gods...",
   "Confirming collectors are awake...",
-  "Recalculating collection efficiency...",
-  "Telling the rigs it's almost Friday...",
 ];
 
 interface Props {
@@ -89,7 +77,7 @@ export default function AppLoadingScreen({ onFinish }: Props) {
     }, 1000);
 
     const shuffled = [...ALL_LINES].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, 10);
+    const selected = shuffled.slice(0, 5);
 
     const blink = Animated.loop(
       Animated.sequence([
@@ -101,7 +89,7 @@ export default function AppLoadingScreen({ onFinish }: Props) {
 
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 13000,
+      duration: 5000,
       useNativeDriver: false,
     }).start();
 
@@ -113,14 +101,14 @@ export default function AppLoadingScreen({ onFinish }: Props) {
       timers.push(
         setTimeout(() => {
           setLines((prev) => [...prev, `> ${line}`]);
-        }, 1100 + i * 1050)
+        }, 800 + i * 700)
       );
     });
 
     timers.push(
       setTimeout(() => {
         setLines((prev) => [...prev, "[ OK ] All systems nominal. Welcome, Collector."]);
-      }, 1100 + selected.length * 1050)
+      }, 800 + selected.length * 700)
     );
 
     timers.push(
@@ -129,10 +117,10 @@ export default function AppLoadingScreen({ onFinish }: Props) {
         setBootComplete(true);
         Animated.timing(enterOpacity, {
           toValue: 1,
-          duration: 500,
+          duration: 400,
           useNativeDriver: true,
         }).start();
-      }, 2200 + selected.length * 1050)
+      }, 1400 + selected.length * 700)
     );
 
     return () => {
