@@ -9,8 +9,10 @@ import {
   RefreshControl,
   Animated,
   TextInput,
+  Platform,
 } from "react-native";
 import { CheckCircle, XCircle, Clock, Inbox, Search, X } from "lucide-react-native";
+const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
 import * as Haptics from "expo-haptics";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useTheme } from "../../../providers/ThemeProvider";
@@ -205,16 +207,13 @@ export default function TasksScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={[styles.header, { backgroundColor: colors.bg }]}>
+      <View style={[styles.header, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={[styles.headerLabel, { color: colors.accent }]}>TASKS</Text>
-            <Text style={[styles.headerName, { color: colors.textPrimary }]}>
-              {selectedCollector.name.split(" ")[0]}
+            <Text style={[styles.brandText, { color: colors.accent, fontFamily: FONT_MONO }]}>TASKS</Text>
+            <Text style={[styles.brandSub, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+              {selectedCollector.name.split(" ")[0]}{selectedRig ? ` · ${selectedRig}` : ""}
             </Text>
-            {selectedRig !== "" && (
-              <Text style={[styles.headerRig, { color: colors.textMuted }]}>{selectedRig}</Text>
-            )}
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -303,11 +302,10 @@ export default function TasksScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
+  header: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1 },
   headerTop: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "flex-start" as const },
-  headerLabel: { fontSize: 10, fontWeight: "700" as const, letterSpacing: 2, marginBottom: 3 },
-  headerName: { fontSize: 20, fontWeight: "700" as const, letterSpacing: -0.3 },
-  headerRig: { fontSize: 12, fontWeight: "500" as const, marginTop: 2 },
+  brandText: { fontSize: 22, fontWeight: "900" as const, letterSpacing: 4 },
+  brandSub: { fontSize: 9, letterSpacing: 1, marginTop: 2 },
   headerRight: { alignItems: "flex-end" as const, gap: 8 },
   searchBtn: {
     width: 34, height: 34, borderRadius: 10, borderWidth: 1,

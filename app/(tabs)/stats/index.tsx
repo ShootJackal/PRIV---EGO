@@ -8,16 +8,39 @@ import {
   Animated,
   ActivityIndicator,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Clock, CheckCircle, Target, Inbox, Calendar, Zap, Trophy, Medal, Crown } from "lucide-react-native";
+import { TrendingUp, Clock, CheckCircle, Target, Inbox, Calendar, Zap, Trophy, Medal, Crown, Upload, ChevronDown } from "lucide-react-native";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { fetchCollectorStats, fetchLeaderboard } from "../../../services/googleSheets";
 import { CollectorStats, LeaderboardEntry } from "../../../types";
 
+const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
+const SF_KNOWN_NAMES = new Set(["tony a", "veronika t", "travis b"]);
+
 function normalizeCollectorName(name: string): string {
   return name.replace(/\s*\(.*?\)\s*$/g, "").trim();
+}
+function normForMatch(name: string): string {
+  return normalizeCollectorName(name).toLowerCase().replace(/\.$/, "").trim();
+}
+
+type LeaderboardTab = "combined" | "sf" | "mx";
+
+function getWeekLabel(weeksAgo: number): string {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset - weeksAgo * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+  if (weeksAgo === 0) return `This Week (${fmt(monday)} - ${fmt(sunday)})`;
+  if (weeksAgo === 1) return `Last Week (${fmt(monday)} - ${fmt(sunday)})`;
+  return `${fmt(monday)} - ${fmt(sunday)}`;
 }
 
 function AnimatedBar({ value, maxValue, color, delay }: { value: number; maxValue: number; color: string; delay: number }) {
@@ -60,29 +83,17 @@ function HeroStat({ label, value, icon, color, index }: { label: string; value: 
   );
 }
 
-function LeaderboardCard({ entry, index, isCurrentUser, colors }: { entry: LeaderboardEntry; index: number; isCurrentUser: boolean; colors: any }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(12)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 300, delay: index * 50, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, delay: index * 50, speed: 24, bounciness: 3, useNativeDriver: true }),
-    ]).start();
-  }, [fadeAnim, slideAnim, index]);
-
+function LeaderboardRow({ entry, index, isCurrentUser, colors }: { entry: LeaderboardEntry; index: number; isCurrentUser: boolean; colors: any }) {
   const rankColor = entry.rank === 1 ? colors.gold : entry.rank === 2 ? colors.silver : entry.rank === 3 ? colors.bronze : colors.textMuted;
   const rankBg = entry.rank === 1 ? colors.goldBg : entry.rank === 2 ? colors.silverBg : entry.rank === 3 ? colors.bronzeBg : colors.bgInput;
   const regionColor = entry.region === "MX" ? colors.mxOrange : entry.region === "SF" ? colors.sfBlue : colors.accent;
 
   return (
-    <Animated.View style={[lbStyles.row, {
+    <View style={[lbStyles.row, {
       backgroundColor: isCurrentUser ? colors.accentSoft : "transparent",
       borderColor: isCurrentUser ? colors.accentDim : "transparent",
       borderWidth: isCurrentUser ? 1 : 0,
       borderRadius: 12,
-      opacity: fadeAnim,
-      transform: [{ translateY: slideAnim }],
     }]}>
       <View style={[lbStyles.rankBadge, { backgroundColor: rankBg }]}>
         {entry.rank <= 3 ? (
@@ -109,7 +120,7 @@ function LeaderboardCard({ entry, index, isCurrentUser, colors }: { entry: Leade
         </View>
       </View>
       <AnimatedBar value={entry.hoursLogged} maxValue={40} color={rankColor} delay={index * 50 + 200} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -127,11 +138,72 @@ const lbStyles = StyleSheet.create({
   statSep: { fontSize: 10 },
 });
 
+function ComparisonCard({ mxHours, sfHours, mxCompleted, sfCompleted, colors }: {
+  mxHours: number; sfHours: number; mxCompleted: number; sfCompleted: number; colors: any;
+}) {
+  const totalHours = mxHours + sfHours;
+  const mxPct = totalHours > 0 ? (mxHours / totalHours) * 100 : 50;
+
+  return (
+    <View style={[compStyles.card, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}>
+      <Text style={[compStyles.title, { color: colors.textMuted }]}>MX vs SF THIS WEEK</Text>
+      <View style={compStyles.barWrap}>
+        <View style={[compStyles.barLeft, { backgroundColor: colors.mxOrange, width: `${Math.max(mxPct, 5)}%` as any }]}>
+          <Text style={compStyles.barLabel}>MX</Text>
+        </View>
+        <View style={[compStyles.barRight, { backgroundColor: colors.sfBlue, width: `${Math.max(100 - mxPct, 5)}%` as any }]}>
+          <Text style={compStyles.barLabel}>SF</Text>
+        </View>
+      </View>
+      <View style={compStyles.statsWrap}>
+        <View style={compStyles.statCol}>
+          <Text style={[compStyles.statValue, { color: colors.mxOrange }]}>{mxHours.toFixed(1)}h</Text>
+          <Text style={[compStyles.statSub, { color: colors.textMuted }]}>MX Hours</Text>
+        </View>
+        <View style={[compStyles.divider, { backgroundColor: colors.border }]} />
+        <View style={compStyles.statCol}>
+          <Text style={[compStyles.statValue, { color: colors.sfBlue }]}>{sfHours.toFixed(1)}h</Text>
+          <Text style={[compStyles.statSub, { color: colors.textMuted }]}>SF Hours</Text>
+        </View>
+        <View style={[compStyles.divider, { backgroundColor: colors.border }]} />
+        <View style={compStyles.statCol}>
+          <Text style={[compStyles.statValue, { color: colors.mxOrange }]}>{mxCompleted}</Text>
+          <Text style={[compStyles.statSub, { color: colors.textMuted }]}>MX Done</Text>
+        </View>
+        <View style={[compStyles.divider, { backgroundColor: colors.border }]} />
+        <View style={compStyles.statCol}>
+          <Text style={[compStyles.statValue, { color: colors.sfBlue }]}>{sfCompleted}</Text>
+          <Text style={[compStyles.statSub, { color: colors.textMuted }]}>SF Done</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const compStyles = StyleSheet.create({
+  card: {
+    borderRadius: 16, padding: 14, borderWidth: 1, marginBottom: 10,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2,
+  },
+  title: { fontSize: 10, fontWeight: "700" as const, letterSpacing: 1.2, marginBottom: 10 },
+  barWrap: { flexDirection: "row" as const, height: 24, borderRadius: 6, overflow: "hidden" as const, marginBottom: 12 },
+  barLeft: { justifyContent: "center" as const, alignItems: "center" as const },
+  barRight: { justifyContent: "center" as const, alignItems: "center" as const },
+  barLabel: { color: "#fff", fontSize: 10, fontWeight: "800" as const, letterSpacing: 1 },
+  statsWrap: { flexDirection: "row" as const, alignItems: "center" as const },
+  statCol: { flex: 1, alignItems: "center" as const },
+  statValue: { fontSize: 15, fontWeight: "700" as const },
+  statSub: { fontSize: 9, marginTop: 2 },
+  divider: { width: 1, height: 24 },
+});
+
 export default function StatsScreen() {
   const { colors } = useTheme();
-  const { selectedCollector, selectedCollectorName, selectedRig, todayLog, configured } = useCollection();
+  const { selectedCollector, selectedCollectorName, selectedRig, todayLog, configured, collectors } = useCollection();
   const [refreshing, setRefreshing] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(true);
+  const [lbTab, setLbTab] = useState<LeaderboardTab>("combined");
+  const [selectedWeek, setSelectedWeek] = useState(0);
+  const [showWeekPicker, setShowWeekPicker] = useState(false);
 
   const normalizedName = useMemo(() => normalizeCollectorName(selectedCollectorName), [selectedCollectorName]);
 
@@ -153,11 +225,9 @@ export default function StatsScreen() {
 
   const localStats = useMemo(() => {
     const completed = todayLog.filter((e) => e.status === "Completed").length;
-    const canceled = todayLog.filter((e) => e.status === "Canceled").length;
     const totalLogged = todayLog.reduce((s, e) => s + e.loggedHours, 0);
-    const totalPlanned = todayLog.reduce((s, e) => s + e.plannedHours, 0);
     const active = todayLog.filter((e) => e.status === "In Progress" || e.status === "Partial").length;
-    return { completed, canceled, totalLogged, totalPlanned, active, total: todayLog.length };
+    return { completed, totalLogged, active, total: todayLog.length };
   }, [todayLog]);
 
   const leaderboard = useMemo<LeaderboardEntry[]>(() => {
@@ -166,6 +236,44 @@ export default function StatsScreen() {
     }
     return [];
   }, [leaderboardQuery.data]);
+
+  const { sfEntries, mxEntries, regionStats } = useMemo(() => {
+    const sf: LeaderboardEntry[] = [];
+    const mx: LeaderboardEntry[] = [];
+    for (const e of leaderboard) {
+      const isSF = e.region === "SF" || SF_KNOWN_NAMES.has(normForMatch(e.collectorName));
+      if (isSF) sf.push({ ...e, region: "SF" });
+      else mx.push({ ...e, region: "MX" });
+    }
+    sf.sort((a, b) => b.hoursLogged - a.hoursLogged);
+    mx.sort((a, b) => b.hoursLogged - a.hoursLogged);
+
+    const sfRanked = sf.map((e, i) => ({ ...e, rank: i + 1 }));
+    const mxRanked = mx.map((e, i) => ({ ...e, rank: i + 1 }));
+
+    const mxHours = mx.reduce((s, e) => s + e.hoursLogged, 0);
+    const sfHours = sf.reduce((s, e) => s + e.hoursLogged, 0);
+    const mxCompleted = mx.reduce((s, e) => s + e.tasksCompleted, 0);
+    const sfCompleted = sf.reduce((s, e) => s + e.tasksCompleted, 0);
+
+    return {
+      sfEntries: sfRanked,
+      mxEntries: mxRanked,
+      regionStats: { mxHours, sfHours, mxCompleted, sfCompleted },
+    };
+  }, [leaderboard]);
+
+  const recentCompleted = useMemo(() => {
+    return leaderboard
+      .filter(e => e.tasksCompleted > 0)
+      .sort((a, b) => b.tasksCompleted - a.tasksCompleted)
+      .slice(0, 8)
+      .map(e => ({
+        name: e.collectorName,
+        tasks: e.tasksCompleted,
+        region: e.region === "SF" || SF_KNOWN_NAMES.has(normForMatch(e.collectorName)) ? "SF" : "MX",
+      }));
+  }, [leaderboard]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -177,6 +285,14 @@ export default function StatsScreen() {
   const stats = statsQuery.data;
 
   const cardShadow = { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 };
+
+  const tabItems: { key: LeaderboardTab; label: string; color: string }[] = [
+    { key: "combined", label: "All", color: colors.accent },
+    { key: "mx", label: "MX", color: colors.mxOrange },
+    { key: "sf", label: "SF", color: colors.sfBlue },
+  ];
+
+  const currentLbEntries = lbTab === "sf" ? sfEntries : lbTab === "mx" ? mxEntries : leaderboard;
 
   if (!selectedCollector) {
     return (
@@ -195,18 +311,16 @@ export default function StatsScreen() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
     >
-      <View style={styles.pageHeader}>
+      <View style={[styles.pageHeader, { borderBottomColor: colors.border }]}>
         <View>
-          <Text style={[styles.pageLabel, { color: colors.accent }]}>PERFORMANCE</Text>
-          <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>
+          <Text style={[styles.brandText, { color: colors.accent, fontFamily: FONT_MONO }]}>STATS</Text>
+          <Text style={[styles.brandSub, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
             {normalizeCollectorName(selectedCollector.name)}
           </Text>
-          {selectedRig !== "" && <Text style={[styles.pageRig, { color: colors.textMuted }]}>{selectedRig}</Text>}
         </View>
-        <View style={[styles.perfBadge, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
-          <Zap size={11} color={colors.accent} />
-          <Text style={[styles.perfBadgeText, { color: colors.accent }]}>Stats</Text>
-        </View>
+        {selectedRig !== "" && (
+          <Text style={[styles.rigBadge, { color: colors.textMuted, fontFamily: FONT_MONO }]}>{selectedRig}</Text>
+        )}
       </View>
 
       <View style={[styles.sectionHeader]}>
@@ -217,24 +331,9 @@ export default function StatsScreen() {
       <View style={styles.heroGrid}>
         <HeroStat label="Assigned" value={String(localStats.total)} icon={<Target size={18} color={colors.accent} />} color={colors.accent} index={0} />
         <HeroStat label="Completed" value={String(localStats.completed)} icon={<CheckCircle size={18} color={colors.complete} />} color={colors.complete} index={1} />
-        <HeroStat label="Logged" value={`${localStats.totalLogged.toFixed(1)}h`} icon={<Clock size={18} color={colors.statusPending} />} color={colors.statusPending} index={2} />
+        <HeroStat label="Uploaded" value={`${localStats.totalLogged.toFixed(1)}h`} icon={<Upload size={18} color={colors.statusPending} />} color={colors.statusPending} index={2} />
         <HeroStat label="Active" value={String(localStats.active)} icon={<TrendingUp size={18} color={colors.accentLight} />} color={colors.accentLight} index={3} />
       </View>
-
-      {localStats.totalPlanned > 0 && (
-        <View style={[styles.progressCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
-          <View style={styles.progressHeader}>
-            <Text style={[styles.progressTitle, { color: colors.textPrimary }]}>Daily Progress</Text>
-            <Text style={[styles.progressPct, { color: colors.accent }]}>
-              {localStats.totalPlanned > 0 ? `${Math.round((localStats.totalLogged / localStats.totalPlanned) * 100)}%` : "0%"}
-            </Text>
-          </View>
-          <AnimatedBar value={localStats.totalLogged} maxValue={localStats.totalPlanned} color={colors.accent} delay={200} />
-          <Text style={[styles.progressSub, { color: colors.textMuted }]}>
-            {localStats.totalLogged.toFixed(1)}h of {localStats.totalPlanned.toFixed(1)}h planned
-          </Text>
-        </View>
-      )}
 
       {stats && stats.weeklyLoggedHours > 0 && (
         <>
@@ -268,28 +367,111 @@ export default function StatsScreen() {
         </>
       )}
 
-      {leaderboard.length > 0 && (
-        <>
-          <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-            <Trophy size={12} color={colors.gold} />
-            <Text style={[styles.sectionLabel, { color: colors.gold }]}>WEEKLY LEADERBOARD</Text>
+      <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+        <Trophy size={12} color={colors.gold} />
+        <Text style={[styles.sectionLabel, { color: colors.gold }]}>LEADERBOARD</Text>
+      </View>
+
+      <View style={[styles.lbTabRow, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        {tabItems.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.lbTabBtn, lbTab === tab.key && { backgroundColor: tab.color + '18', borderColor: tab.color + '40' }]}
+            onPress={() => setLbTab(tab.key)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.lbTabText, {
+              color: lbTab === tab.key ? tab.color : colors.textMuted,
+              fontWeight: lbTab === tab.key ? "700" as const : "500" as const,
+            }]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+
+        <TouchableOpacity
+          style={[styles.weekDropdown, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
+          onPress={() => setShowWeekPicker(!showWeekPicker)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.weekDropdownText, { color: colors.textSecondary, fontFamily: FONT_MONO }]}>
+            {selectedWeek === 0 ? "This Week" : selectedWeek === 1 ? "Last Week" : `${selectedWeek}w ago`}
+          </Text>
+          <ChevronDown size={12} color={colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {showWeekPicker && (
+        <View style={[styles.weekPickerWrap, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          {[0, 1, 2, 3].map(w => (
+            <TouchableOpacity
+              key={w}
+              style={[styles.weekPickerItem, selectedWeek === w && { backgroundColor: colors.accentSoft }]}
+              onPress={() => { setSelectedWeek(w); setShowWeekPicker(false); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.weekPickerText, {
+                color: selectedWeek === w ? colors.accent : colors.textSecondary,
+                fontWeight: selectedWeek === w ? "700" as const : "400" as const,
+              }]}>
+                {getWeekLabel(w)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {lbTab === "combined" && leaderboard.length > 0 && (
+        <ComparisonCard
+          mxHours={regionStats.mxHours}
+          sfHours={regionStats.sfHours}
+          mxCompleted={regionStats.mxCompleted}
+          sfCompleted={regionStats.sfCompleted}
+          colors={colors}
+        />
+      )}
+
+      {currentLbEntries.length > 0 ? (
+        <View style={[styles.leaderboardCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+          <View style={styles.lbHeaderRow}>
+            <Text style={[styles.lbHeaderText, { color: colors.textMuted }]}>
+              {lbTab === "sf" ? "San Francisco" : lbTab === "mx" ? "Los Cabos (MX)" : "Combined"} Rankings
+            </Text>
+            <Medal size={14} color={colors.gold} />
           </View>
-          <View style={[styles.leaderboardCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
-            <View style={styles.lbHeaderRow}>
-              <Text style={[styles.lbHeaderText, { color: colors.textMuted }]}>Mon-Sun Rankings</Text>
-              <Medal size={14} color={colors.gold} />
-            </View>
-            {leaderboard.slice(0, 10).map((entry, idx) => (
-              <LeaderboardCard
-                key={`lb_${idx}`}
-                entry={entry}
-                index={idx}
-                isCurrentUser={normalizeCollectorName(entry.collectorName).toLowerCase() === normalizedName.toLowerCase()}
-                colors={colors}
-              />
-            ))}
-          </View>
-        </>
+          {currentLbEntries.slice(0, 15).map((entry, idx) => (
+            <LeaderboardRow
+              key={`lb_${lbTab}_${idx}`}
+              entry={entry}
+              index={idx}
+              isCurrentUser={normalizeCollectorName(entry.collectorName).toLowerCase() === normalizedName.toLowerCase()}
+              colors={colors}
+            />
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.lbEmpty, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <Text style={[styles.lbEmptyText, { color: colors.textMuted }]}>No leaderboard data available</Text>
+        </View>
+      )}
+
+      {lbTab === "combined" && recentCompleted.length > 0 && (
+        <View style={[styles.recentCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+          <Text style={[styles.recentTitle, { color: colors.textMuted }]}>RECENT COMPLETIONS</Text>
+          {recentCompleted.map((item, idx) => {
+            const regionColor = item.region === "MX" ? colors.mxOrange : colors.sfBlue;
+            return (
+              <View key={`rc_${idx}`} style={[styles.recentRow, { borderBottomColor: colors.border }, idx === recentCompleted.length - 1 && styles.recentRowLast]}>
+                <View style={[styles.recentDot, { backgroundColor: regionColor }]} />
+                <Text style={[styles.recentName, { color: colors.textSecondary }]} numberOfLines={1}>{item.name}</Text>
+                <View style={[styles.recentRegionTag, { backgroundColor: regionColor + '14' }]}>
+                  <Text style={[styles.recentRegionText, { color: regionColor }]}>{item.region}</Text>
+                </View>
+                <Text style={[styles.recentTasks, { color: colors.complete }]}>{item.tasks} done</Text>
+              </View>
+            );
+          })}
+        </View>
       )}
 
       {statsQuery.isLoading && (
@@ -360,12 +542,13 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
-  pageHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "flex-end" as const, marginBottom: 22 },
-  pageLabel: { fontSize: 10, fontWeight: "700" as const, letterSpacing: 2, marginBottom: 4 },
-  pageTitle: { fontSize: 26, letterSpacing: -0.5, fontWeight: "700" as const },
-  pageRig: { fontSize: 12, marginTop: 2 },
-  perfBadge: { flexDirection: "row" as const, alignItems: "center" as const, gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1 },
-  perfBadgeText: { fontSize: 11, fontWeight: "600" as const },
+  pageHeader: {
+    flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "flex-end" as const,
+    marginBottom: 22, paddingBottom: 12, borderBottomWidth: 1,
+  },
+  brandText: { fontSize: 22, fontWeight: "900" as const, letterSpacing: 4 },
+  brandSub: { fontSize: 9, letterSpacing: 1, marginTop: 2 },
+  rigBadge: { fontSize: 9, letterSpacing: 0.5 },
   sectionHeader: { flexDirection: "row" as const, alignItems: "center" as const, gap: 6, marginBottom: 12 },
   sectionLabel: { fontSize: 10, letterSpacing: 1.4, fontWeight: "700" as const },
   sectionLabelMuted: { fontSize: 10, letterSpacing: 1.2, fontWeight: "600" as const },
@@ -377,20 +560,44 @@ const styles = StyleSheet.create({
   heroIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: "center" as const, justifyContent: "center" as const, marginBottom: 10 },
   heroValue: { fontSize: 24, letterSpacing: -0.5, fontWeight: "700" as const },
   heroLabel: { fontSize: 11, marginTop: 2, fontWeight: "500" as const },
-  progressCard: { borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1 },
-  progressHeader: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, marginBottom: 10 },
-  progressTitle: { fontSize: 14, fontWeight: "600" as const },
-  progressPct: { fontSize: 16, fontWeight: "700" as const },
-  progressSub: { fontSize: 11, marginTop: 8 },
   weekCard: { borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1 },
   weekRow: { flexDirection: "row" as const, alignItems: "center" as const },
   weekSep: { width: 1, height: 28 },
   weekItem: { flex: 1, alignItems: "center" as const },
   weekVal: { fontSize: 16, fontWeight: "600" as const },
   weekLbl: { fontSize: 10, marginTop: 3 },
+  lbTabRow: {
+    flexDirection: "row" as const, alignItems: "center" as const, gap: 6,
+    borderRadius: 12, borderWidth: 1, padding: 6, marginBottom: 10,
+  },
+  lbTabBtn: {
+    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: "transparent",
+  },
+  lbTabText: { fontSize: 12, letterSpacing: 0.3 },
+  weekDropdown: {
+    flexDirection: "row" as const, alignItems: "center" as const, gap: 4,
+    marginLeft: "auto" as const, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1,
+  },
+  weekDropdownText: { fontSize: 10, letterSpacing: 0.3 },
+  weekPickerWrap: {
+    borderRadius: 12, borderWidth: 1, marginBottom: 10, overflow: "hidden" as const,
+  },
+  weekPickerItem: { paddingHorizontal: 14, paddingVertical: 10 },
+  weekPickerText: { fontSize: 13 },
   leaderboardCard: { borderRadius: 16, padding: 12, marginBottom: 12, borderWidth: 1 },
   lbHeaderRow: { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const, paddingHorizontal: 4, paddingBottom: 8, marginBottom: 4 },
   lbHeaderText: { fontSize: 10, fontWeight: "600" as const, letterSpacing: 0.5, textTransform: "uppercase" as const },
+  lbEmpty: { borderRadius: 16, padding: 20, borderWidth: 1, marginBottom: 12, alignItems: "center" as const },
+  lbEmptyText: { fontSize: 13 },
+  recentCard: { borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 1 },
+  recentTitle: { fontSize: 10, fontWeight: "700" as const, letterSpacing: 1.2, marginBottom: 10 },
+  recentRow: { flexDirection: "row" as const, alignItems: "center" as const, paddingVertical: 8, borderBottomWidth: 1, gap: 8 },
+  recentRowLast: { borderBottomWidth: 0 },
+  recentDot: { width: 6, height: 6, borderRadius: 3 },
+  recentName: { flex: 1, fontSize: 13, fontWeight: "500" as const },
+  recentRegionTag: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  recentRegionText: { fontSize: 9, fontWeight: "700" as const, letterSpacing: 0.5 },
+  recentTasks: { fontSize: 12, fontWeight: "600" as const },
   loadingWrap: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "center" as const, gap: 8, paddingVertical: 20 },
   loadingText: { fontSize: 13 },
   allTimeCard: { borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1 },

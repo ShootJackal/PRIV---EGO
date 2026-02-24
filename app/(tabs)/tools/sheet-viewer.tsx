@@ -6,21 +6,21 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
-import { RefreshCw, AlertCircle, CheckCircle2, Clock, ArrowUpDown, RotateCcw, Activity } from "lucide-react-native";
+import { RefreshCw, AlertCircle, CheckCircle2, Clock, RotateCcw, Activity } from "lucide-react-native";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchFullLog,
   fetchTaskActualsData,
-  fetchAdminDashboardData,
   fetchTodayLog,
-  fetchRecollections,
 } from "../../../services/googleSheets";
-import type { FullLogEntry, TaskActualRow, AdminDashboardData } from "../../../types";
+import type { FullLogEntry, TaskActualRow } from "../../../types";
+
+const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
 
 function StatusBadge({ status, colors }: { status: string; colors: any }) {
   const upper = status.toUpperCase();
@@ -243,7 +243,7 @@ function TaskActualsView({ configured }: { configured: boolean }) {
       {grouped.recollect.length > 0 && (
         <View style={viewStyles.section}>
           <Text style={[viewStyles.sectionTitle, { color: colors.cancel }]}>RECOLLECT ({grouped.recollect.length})</Text>
-          {grouped.recollect.map((t, i) => <TaskRow key={`r_${i}`} task={t} colors={colors} />)}
+          {grouped.recollect.map((t, i) => <TaskRow key={`r_${i}`} task={t} colors={colors} showRecollectTime />)}
         </View>
       )}
 
@@ -271,7 +271,11 @@ function TaskActualsView({ configured }: { configured: boolean }) {
   );
 }
 
-function TaskRow({ task, colors }: { task: TaskActualRow; colors: any }) {
+function TaskRow({ task, colors, showRecollectTime }: { task: TaskActualRow; colors: any; showRecollectTime?: boolean }) {
+  const isRecollect = task.status.toUpperCase() === "RECOLLECT";
+  const recollectNeeded = isRecollect && task.remainingHours > 0 ? task.remainingHours : 0;
+  const goodGap = isRecollect ? Math.max(task.collectedHours - task.goodHours, 0) : 0;
+
   return (
     <View style={[viewStyles.taskCard, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}>
       <View style={viewStyles.taskTop}>
@@ -283,6 +287,14 @@ function TaskRow({ task, colors }: { task: TaskActualRow; colors: any }) {
         <StatChip label="Good" value={`${task.goodHours}h`} color={colors.complete} />
         <StatChip label="Remaining" value={`${task.remainingHours}h`} color={task.remainingHours > 0 ? colors.statusPending : colors.textMuted} />
       </View>
+      {showRecollectTime && isRecollect && (
+        <View style={[viewStyles.recollectInfo, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + '20' }]}>
+          <Clock size={11} color={colors.cancel} />
+          <Text style={[viewStyles.recollectInfoText, { color: colors.cancel }]}>
+            Recollection needed: {recollectNeeded > 0 ? `${recollectNeeded}h remaining` : `${goodGap.toFixed(1)}h good data gap`}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -305,107 +317,6 @@ function SummaryChip({ label, value, color, bg }: { label: string; value: string
   );
 }
 
-function AdminDashboardView({ configured }: { configured: boolean }) {
-  const { colors } = useTheme();
-  const queryClient = useQueryClient();
-
-  const adminQuery = useQuery({
-    queryKey: ["adminDashboard"],
-    queryFn: fetchAdminDashboardData,
-    enabled: configured,
-    staleTime: 60000,
-    retry: 2,
-  });
-
-  const recollectQuery = useQuery({
-    queryKey: ["recollections"],
-    queryFn: fetchRecollections,
-    enabled: configured,
-    staleTime: 30000,
-    retry: 2,
-  });
-
-  const isLoading = adminQuery.isLoading && recollectQuery.isLoading;
-  const hasAdminData = !!adminQuery.data;
-  const recollections = adminQuery.data?.recollections ?? recollectQuery.data ?? [];
-
-  if (isLoading) {
-    return <LoadingState colors={colors} message="Loading admin dashboard..." />;
-  }
-
-  if (adminQuery.isError && recollectQuery.isError) {
-    return (
-      <ErrorState
-        colors={colors}
-        message="Add getAdminDashboardData endpoint to your Apps Script and redeploy"
-        onRetry={() => {
-          queryClient.invalidateQueries({ queryKey: ["adminDashboard"] });
-          queryClient.invalidateQueries({ queryKey: ["recollections"] });
-        }}
-      />
-    );
-  }
-
-  const data = adminQuery.data;
-
-  return (
-    <View style={viewStyles.list}>
-      {hasAdminData && data && (
-        <View style={viewStyles.summaryRow}>
-          <SummaryChip label="Total" value={String(data.totalTasks)} color={colors.textPrimary} bg={colors.bgInput} />
-          <SummaryChip label="Done" value={String(data.completedTasks)} color={colors.complete} bg={colors.completeBg} />
-          <SummaryChip label="Active" value={String(data.inProgressTasks)} color={colors.accent} bg={colors.accentSoft} />
-          <SummaryChip label="Recollect" value={String(data.recollectTasks)} color={colors.cancel} bg={colors.cancelBg} />
-        </View>
-      )}
-
-      <View style={[viewStyles.recollectSection, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}>
-        <View style={viewStyles.recollectHeader}>
-          <Activity size={16} color={colors.cancel} />
-          <Text style={[viewStyles.recollectTitle, { color: colors.textPrimary }]}>
-            Pending Recollections
-          </Text>
-          <Text style={[viewStyles.recollectCount, { color: colors.cancel, backgroundColor: colors.cancelBg }]}>
-            {recollections.length}
-          </Text>
-        </View>
-
-        {recollections.length > 0 ? (
-          recollections.map((item, idx) => (
-            <View
-              key={`rec_${idx}`}
-              style={[viewStyles.recollectItem, { borderTopColor: colors.border }]}
-            >
-              <View style={[viewStyles.recollectDot, { backgroundColor: colors.cancel }]} />
-              <Text style={[viewStyles.recollectText, { color: colors.textPrimary }]} numberOfLines={2}>
-                {item}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <View style={viewStyles.recollectEmpty}>
-            <CheckCircle2 size={20} color={colors.complete} />
-            <Text style={[viewStyles.recollectEmptyText, { color: colors.textMuted }]}>
-              No pending recollections
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {!hasAdminData && (
-        <View style={[viewStyles.hintCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <Text style={[viewStyles.hintTitle, { color: colors.textMuted }]}>
-            Want more dashboard data?
-          </Text>
-          <Text style={[viewStyles.hintText, { color: colors.textMuted }]}>
-            Add <Text style={{ fontWeight: "700" as const, color: colors.textSecondary }}>getAdminDashboardData</Text> endpoint to your Apps Script and redeploy to see task summary stats.
-          </Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 export default function SheetViewerScreen() {
   const { colors } = useTheme();
   const { sheetId = "log", title = "Data" } = useLocalSearchParams<{ sheetId?: string; title?: string }>();
@@ -419,9 +330,6 @@ export default function SheetViewerScreen() {
       queryClient.invalidateQueries({ queryKey: ["todayLog"] });
     } else if (sheetId === "taskActuals") {
       queryClient.invalidateQueries({ queryKey: ["taskActualsSheet"] });
-    } else if (sheetId === "admin") {
-      queryClient.invalidateQueries({ queryKey: ["adminDashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["recollections"] });
     }
   }, [sheetId, queryClient]);
 
@@ -451,9 +359,6 @@ export default function SheetViewerScreen() {
         )}
         {sheetId === "taskActuals" && (
           <TaskActualsView configured={configured} />
-        )}
-        {sheetId === "admin" && (
-          <AdminDashboardView configured={configured} />
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -559,63 +464,17 @@ const viewStyles = StyleSheet.create({
   statChip: { gap: 1 },
   statLabel: { fontSize: 10, fontWeight: "500" as const },
   statValue: { fontSize: 14, fontWeight: "700" as const },
-  recollectSection: {
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden" as const,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  recollectHeader: {
+  recollectInfo: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  recollectTitle: { flex: 1, fontSize: 15, fontWeight: "700" as const },
-  recollectCount: {
-    fontSize: 12,
-    fontWeight: "700" as const,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    overflow: "hidden" as const,
-  },
-  recollectItem: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-  },
-  recollectDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  recollectText: { flex: 1, fontSize: 14, lineHeight: 18 },
-  recollectEmpty: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    borderTopWidth: 0,
-    justifyContent: "center" as const,
-  },
-  recollectEmptyText: { fontSize: 14 },
-  hintCard: {
-    borderRadius: 14,
-    padding: 16,
     borderWidth: 1,
-    marginTop: 4,
   },
-  hintTitle: { fontSize: 13, fontWeight: "600" as const, marginBottom: 6 },
-  hintText: { fontSize: 12, lineHeight: 17 },
+  recollectInfoText: { fontSize: 11, fontWeight: "600" as const },
 });
 
 const pageStyles = StyleSheet.create({

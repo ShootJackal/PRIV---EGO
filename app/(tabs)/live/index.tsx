@@ -47,43 +47,80 @@ function NewsTicker({ segments }: { segments: TickerSegment[] }) {
   const { colors, isDark } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
-  const pillOpacity = useRef(new Animated.Value(1)).current;
+  const pillSlide = useRef(new Animated.Value(0)).current;
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const seg = segments[activeIndex] ?? segments[0];
 
-  useEffect(() => {
-    if (segments.length <= 1) return;
-    const interval = setInterval(() => {
-      Animated.timing(pillOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-        setActiveIndex(prev => (prev + 1) % segments.length);
-        Animated.timing(pillOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
-      });
-    }, 7000);
-    return () => clearInterval(interval);
-  }, [segments.length, pillOpacity]);
+  const startScroll = useCallback((segIndex: number) => {
+    const segment = segments[segIndex];
+    if (!segment) return;
 
-  const tickerText = seg ? seg.items.join("     |     ") : "";
+    const tickerText = segment.items.join("     |     ");
+    const textWidth = tickerText.length * 7 + SCREEN_WIDTH;
+    const charSpeed = segment.speed || 28;
+    const duration = Math.max(textWidth * charSpeed, 10000);
+
+    scrollX.setValue(SCREEN_WIDTH * 0.5);
+
+    if (animRef.current) animRef.current.stop();
+
+    const scrollAnim = Animated.timing(scrollX, {
+      toValue: -textWidth + SCREEN_WIDTH * 0.3,
+      duration,
+      useNativeDriver: true,
+    });
+
+    animRef.current = scrollAnim;
+
+    scrollAnim.start(({ finished }) => {
+      if (finished && segments.length > 1) {
+        const nextIdx = (segIndex + 1) % segments.length;
+
+        Animated.timing(pillSlide, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => {
+          setActiveIndex(nextIdx);
+          pillSlide.setValue(0);
+
+          timerRef.current = setTimeout(() => {
+            startScroll(nextIdx);
+          }, 400);
+        });
+      } else if (finished && segments.length <= 1) {
+        timerRef.current = setTimeout(() => {
+          startScroll(segIndex);
+        }, 2000);
+      }
+    });
+  }, [segments, scrollX, pillSlide]);
 
   useEffect(() => {
-    if (!seg) return;
-    const totalWidth = tickerText.length * 7 + 600;
-    scrollX.setValue(SCREEN_WIDTH * 0.6);
-    const duration = Math.max(totalWidth * (seg.speed || 28), 8000);
-    const anim = Animated.loop(
-      Animated.timing(scrollX, { toValue: -totalWidth, duration, useNativeDriver: true })
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [tickerText, scrollX, seg, activeIndex]);
+    setActiveIndex(0);
+    pillSlide.setValue(0);
+    startScroll(0);
+
+    return () => {
+      if (animRef.current) animRef.current.stop();
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [segments.length]);
 
   if (!seg) return null;
+
+  const tickerText = seg.items.join("     |     ");
 
   return (
     <View style={[tickerStyles.container, {
       backgroundColor: isDark ? '#161618' : '#F8F6F0',
       borderBottomColor: isDark ? '#222228' : '#E8E4DA',
     }]}>
-      <Animated.View style={[tickerStyles.pillWrap, { opacity: pillOpacity }]}>
+      <Animated.View style={[tickerStyles.pillWrap, {
+        opacity: pillSlide.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.3, 1] }),
+      }]}>
         <View style={[tickerStyles.pill, { backgroundColor: seg.color + '18' }]}>
           <View style={[tickerStyles.pillDot, { backgroundColor: seg.color }]} />
           <Text style={[tickerStyles.pillText, { color: seg.color, fontFamily: FONT_MONO }]}>

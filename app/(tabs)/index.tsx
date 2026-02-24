@@ -23,11 +23,15 @@ import {
   Info,
   Clock,
   Send,
+  Search,
+  X,
 } from "lucide-react-native";
 import { useCollection } from "../../providers/CollectionProvider";
 import { useTheme } from "../../providers/ThemeProvider";
 import SelectPicker from "../../components/SelectPicker";
 import ActionButton from "../../components/ActionButton";
+
+const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
 
 function LogEntryRow({ entry, statusColor, colors, isLast }: {
   entry: { taskName: string; status: string; loggedHours: number; plannedHours: number; remainingHours: number; notes: string };
@@ -118,8 +122,11 @@ export default function DashboardScreen() {
   } = useCollection();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [taskSearch, setTaskSearch] = useState("");
+  const [showTaskSearch, setShowTaskSearch] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+  const searchAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -134,13 +141,25 @@ export default function DashboardScreen() {
   );
 
   const taskOptions = useMemo(
-    () => tasks.map((t) => ({ value: t.name, label: t.label })),
-    [tasks]
+    () => {
+      const allTasks = tasks.map((t) => ({ value: t.name, label: t.label }));
+      if (!taskSearch.trim()) return allTasks;
+      const q = taskSearch.toLowerCase();
+      return allTasks.filter((t) => t.label.toLowerCase().includes(q));
+    },
+    [tasks, taskSearch]
   );
 
   const canSubmit = !!selectedCollectorName && !!selectedTaskName;
   const latestOpenTask = openTasks.length > 0 ? openTasks[0] : null;
   const plannedHoursHint = latestOpenTask ? latestOpenTask.plannedHours : 0;
+
+  const toggleTaskSearch = useCallback(() => {
+    const next = !showTaskSearch;
+    setShowTaskSearch(next);
+    Animated.timing(searchAnim, { toValue: next ? 1 : 0, duration: 200, useNativeDriver: false }).start();
+    if (!next) setTaskSearch("");
+  }, [showTaskSearch, searchAnim]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -217,24 +236,26 @@ export default function DashboardScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />
           }
         >
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <Text style={[styles.pageLabel, { color: colors.accent }]}>
+              <Text style={[styles.brandText, { color: colors.accent, fontFamily: FONT_MONO }]}>
                 COLLECT
               </Text>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>
-                {selectedCollector ? `${selectedCollector.name.split(" ")[0]}'s Workspace` : "Collection Hub"}
+              <Text style={[styles.brandSub, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+                {selectedCollector ? `${selectedCollector.name.split(" ")[0]}'s Workspace` : "Task Management"}
               </Text>
+            </View>
+            <View style={styles.headerRight}>
               {selectedRig !== "" && (
-                <Text style={[styles.rigLabel, { color: colors.textMuted }]}>{selectedRig}</Text>
+                <Text style={[styles.rigLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>{selectedRig}</Text>
+              )}
+              {openTasks.length > 0 && (
+                <View style={[styles.openPill, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
+                  <Circle size={6} color={colors.accent} fill={colors.accent} />
+                  <Text style={[styles.openPillText, { color: colors.accent }]}>{openTasks.length} open</Text>
+                </View>
               )}
             </View>
-            {openTasks.length > 0 && (
-              <View style={[styles.openPill, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
-                <Circle size={6} color={colors.accent} fill={colors.accent} />
-                <Text style={[styles.openPillText, { color: colors.accent }]}>{openTasks.length} open</Text>
-              </View>
-            )}
           </View>
 
           {!configured && (
@@ -275,14 +296,52 @@ export default function DashboardScreen() {
             <View style={styles.formField}>
               <View style={styles.fieldRow}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Task</Text>
-                {isLoadingTasks && <ActivityIndicator size="small" color={colors.accent} />}
+                <View style={styles.fieldRowRight}>
+                  {isLoadingTasks && <ActivityIndicator size="small" color={colors.accent} />}
+                  <TouchableOpacity
+                    onPress={toggleTaskSearch}
+                    style={[styles.searchToggle, {
+                      backgroundColor: showTaskSearch ? colors.accentSoft : 'transparent',
+                    }]}
+                    activeOpacity={0.7}
+                    testID="task-search-toggle"
+                  >
+                    {showTaskSearch ? <X size={14} color={colors.accent} /> : <Search size={14} color={colors.textMuted} />}
+                  </TouchableOpacity>
+                </View>
               </View>
+
+              {showTaskSearch && (
+                <Animated.View style={[styles.searchWrap, {
+                  opacity: searchAnim,
+                  maxHeight: searchAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 44] }),
+                }]}>
+                  <View style={[styles.searchBar, { backgroundColor: colors.bgInput, borderColor: colors.border }]}>
+                    <Search size={13} color={colors.textMuted} />
+                    <TextInput
+                      style={[styles.searchInput, { color: colors.textPrimary }]}
+                      value={taskSearch}
+                      onChangeText={setTaskSearch}
+                      placeholder="Search tasks..."
+                      placeholderTextColor={colors.textMuted}
+                      autoFocus
+                      testID="task-search-input"
+                    />
+                    {taskSearch.length > 0 && (
+                      <TouchableOpacity onPress={() => setTaskSearch("")} activeOpacity={0.7}>
+                        <X size={13} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </Animated.View>
+              )}
+
               <SelectPicker
                 label=""
                 options={taskOptions}
                 selectedValue={selectedTaskName}
                 onValueChange={setSelectedTaskName}
-                placeholder="Choose a task..."
+                placeholder={taskSearch ? `${taskOptions.length} tasks found...` : "Choose a task..."}
                 testID="task-picker"
               />
             </View>
@@ -427,16 +486,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between" as const,
     alignItems: "flex-start" as const,
     marginBottom: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
   },
   headerLeft: {},
-  pageLabel: {
-    fontSize: 10,
-    fontWeight: "700" as const,
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  title: { fontSize: 22, fontWeight: "700" as const, letterSpacing: -0.4 },
-  rigLabel: { fontSize: 12, fontWeight: "500" as const, marginTop: 2 },
+  headerRight: { alignItems: "flex-end" as const, gap: 4 },
+  brandText: { fontSize: 22, fontWeight: "900" as const, letterSpacing: 4 },
+  brandSub: { fontSize: 9, letterSpacing: 1, marginTop: 2 },
+  rigLabel: { fontSize: 9, letterSpacing: 0.5 },
   openPill: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -445,7 +502,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    marginTop: 6,
   },
   openPillText: { fontSize: 11, fontWeight: "600" as const },
   notice: {
@@ -462,8 +518,18 @@ const styles = StyleSheet.create({
   formField: { paddingVertical: 2 },
   fieldLabel: { fontSize: 11, fontWeight: "700" as const, marginBottom: 6, letterSpacing: 0.4, textTransform: "uppercase" as const },
   fieldRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, marginBottom: 6 },
+  fieldRowRight: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8 },
   optionalTag: { fontSize: 10, fontWeight: "500" as const },
   separator: { height: 1, marginVertical: 10 },
+  searchToggle: {
+    width: 28, height: 28, borderRadius: 8, alignItems: "center" as const, justifyContent: "center" as const,
+  },
+  searchWrap: { marginBottom: 6, overflow: "hidden" as const },
+  searchBar: {
+    flexDirection: "row" as const, alignItems: "center" as const,
+    paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, gap: 6,
+  },
+  searchInput: { flex: 1, fontSize: 13, paddingVertical: 8 },
   input: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, fontWeight: "500" as const, borderWidth: 1 },
   notesInput: { minHeight: 56, fontSize: 13 },
   hintRow: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: 5, marginTop: 6 },
