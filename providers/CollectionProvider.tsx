@@ -221,6 +221,9 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
       throw new Error("Select collector and task first");
     }
     const hours = hoursToLog ? parseFloat(hoursToLog) : 0;
+    if (!hours || hours <= 0) {
+      throw new Error("Enter hours to log before assigning");
+    }
     await submitMutation.mutateAsync({
       collector: selectedCollectorName,
       task: selectedTaskName,
@@ -234,6 +237,9 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     async (taskName: string) => {
       if (!selectedCollectorName) throw new Error("No collector selected");
       const hours = hoursToLog ? parseFloat(hoursToLog) : 0;
+      if (!hours || hours <= 0) {
+        throw new Error("Enter hours to log before completing");
+      }
       await submitMutation.mutateAsync({
         collector: selectedCollectorName,
         task: taskName,

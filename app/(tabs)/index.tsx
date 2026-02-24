@@ -150,7 +150,9 @@ export default function DashboardScreen() {
     [tasks, taskSearch]
   );
 
+  const hasValidHours = !!hoursToLog.trim() && parseFloat(hoursToLog) > 0;
   const canSubmit = !!selectedCollectorName && !!selectedTaskName;
+  const canSubmitWithHours = canSubmit && hasValidHours;
   const latestOpenTask = openTasks.length > 0 ? openTasks[0] : null;
   const plannedHoursHint = latestOpenTask ? latestOpenTask.plannedHours : 0;
 
@@ -351,17 +353,29 @@ export default function DashboardScreen() {
             <View style={styles.formField}>
               <View style={styles.fieldRow}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Hours</Text>
-                <Text style={[styles.optionalTag, { color: colors.textMuted }]}>optional</Text>
+                <Text style={[styles.requiredTag, { color: colors.cancel }]}>required</Text>
               </View>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.bgInput, borderColor: colors.border, color: colors.textPrimary }]}
+                style={[styles.input, {
+                  backgroundColor: colors.bgInput,
+                  borderColor: !hoursToLog.trim() ? colors.statusPending + '60' : colors.border,
+                  color: colors.textPrimary,
+                }]}
                 value={hoursToLog}
                 onChangeText={setHoursToLog}
-                placeholder="0.00"
+                placeholder="Enter hours (e.g. 1.5)"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 testID="hours-input"
               />
+              {!hoursToLog.trim() && (
+                <View style={styles.hintRow}>
+                  <AlertCircle size={10} color={colors.statusPending} />
+                  <Text style={[styles.hintText, { color: colors.statusPending }]}>
+                    You must enter your actual hours before submitting
+                  </Text>
+                </View>
+              )}
               {latestOpenTask && plannedHoursHint > 0 && (
                 <View style={styles.hintRow}>
                   <Info size={10} color={colors.statusPending} />
@@ -400,7 +414,7 @@ export default function DashboardScreen() {
               color={colors.assign}
               bgColor={colors.assignBg}
               onPress={handleAssign}
-              disabled={!canSubmit || isSubmitting}
+              disabled={!canSubmitWithHours || isSubmitting}
               loading={isSubmitting}
               testID="assign-btn"
             />
@@ -410,7 +424,7 @@ export default function DashboardScreen() {
               color={colors.complete}
               bgColor={colors.completeBg}
               onPress={handleComplete}
-              disabled={!latestOpenTask || isSubmitting}
+              disabled={!latestOpenTask || !hasValidHours || isSubmitting}
               loading={isSubmitting}
               testID="complete-btn"
             />
@@ -520,6 +534,7 @@ const styles = StyleSheet.create({
   fieldRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, marginBottom: 6 },
   fieldRowRight: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8 },
   optionalTag: { fontSize: 10, fontWeight: "500" as const },
+  requiredTag: { fontSize: 10, fontWeight: "700" as const },
   separator: { height: 1, marginVertical: 10 },
   searchToggle: {
     width: 28, height: 28, borderRadius: 8, alignItems: "center" as const, justifyContent: "center" as const,
