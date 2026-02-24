@@ -21,6 +21,10 @@ const ALL_LINES = [
   "Counting hours... carry the 1...",
   "Reminding rigs they signed a contract...",
   "Bribing the servers with electricity...",
+  "Negotiating with the spreadsheet gods...",
+  "Confirming collectors are awake...",
+  "Recalculating collection efficiency...",
+  "Telling the rigs it's almost Friday...",
 ];
 
 interface Props {
@@ -32,9 +36,10 @@ export default function AppLoadingScreen({ onFinish }: Props) {
   const fadeOut = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const cursorAnim = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const logoScale = useRef(new Animated.Value(0.75)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const terminalOpacity = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0.08)).current;
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
 
@@ -43,38 +48,45 @@ export default function AppLoadingScreen({ onFinish }: Props) {
       Animated.spring(logoScale, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 60,
-        friction: 8,
+        tension: 40,
+        friction: 9,
       }),
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 500,
+        duration: 700,
         useNativeDriver: true,
       }),
     ]).start();
 
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 0.16, duration: 2000, useNativeDriver: false }),
+        Animated.timing(glowAnim, { toValue: 0.06, duration: 2000, useNativeDriver: false }),
+      ])
+    ).start();
+
     setTimeout(() => {
       Animated.timing(terminalOpacity, {
         toValue: 1,
-        duration: 300,
+        duration: 400,
         useNativeDriver: true,
       }).start();
-    }, 400);
+    }, 600);
 
     const shuffled = [...ALL_LINES].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, 5);
+    const selected = shuffled.slice(0, 8);
 
     const blink = Animated.loop(
       Animated.sequence([
-        Animated.timing(cursorAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(cursorAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.timing(cursorAnim, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(cursorAnim, { toValue: 0, duration: 380, useNativeDriver: true }),
       ])
     );
     blink.start();
 
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 3200,
+      duration: 6800,
       useNativeDriver: false,
     }).start();
 
@@ -86,14 +98,14 @@ export default function AppLoadingScreen({ onFinish }: Props) {
       timers.push(
         setTimeout(() => {
           setLines((prev) => [...prev, `> ${line}`]);
-        }, 500 + i * 440)
+        }, 700 + i * 700)
       );
     });
 
     timers.push(
       setTimeout(() => {
         setLines((prev) => [...prev, "[ OK ] System online. Let's collect."]);
-      }, 500 + selected.length * 440)
+      }, 700 + selected.length * 700)
     );
 
     timers.push(
@@ -101,23 +113,24 @@ export default function AppLoadingScreen({ onFinish }: Props) {
         blink.stop();
         Animated.timing(fadeOut, {
           toValue: 0,
-          duration: 400,
+          duration: 700,
           useNativeDriver: true,
         }).start(() => {
           onFinishRef.current();
         });
-      }, 800 + selected.length * 440)
+      }, 1400 + selected.length * 700)
     );
 
     return () => {
       timers.forEach(clearTimeout);
       blink.stop();
     };
-  }, [fadeOut, progressAnim, cursorAnim, logoScale, logoOpacity, terminalOpacity]);
+  }, [fadeOut, progressAnim, cursorAnim, logoScale, logoOpacity, terminalOpacity, glowAnim]);
 
   return (
     <Animated.View style={[s.container, { opacity: fadeOut }]}>
-      <View style={s.bgGlow} />
+      <Animated.View style={[s.bgGlow, { opacity: glowAnim }]} />
+      <View style={s.bgGlowSmall} />
 
       <Animated.View
         style={[
@@ -182,6 +195,8 @@ export default function AppLoadingScreen({ onFinish }: Props) {
           />
         </View>
       </Animated.View>
+
+      <Text style={s.versionTag}>v1.0 · EGO Data Division</Text>
     </Animated.View>
   );
 }
@@ -197,37 +212,46 @@ const s = StyleSheet.create({
   },
   bgGlow: {
     position: "absolute",
-    top: "20%",
+    top: "15%",
     left: "50%",
-    marginLeft: -120,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    marginLeft: -160,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
     backgroundColor: "#7C3AED",
-    opacity: 0.08,
+  },
+  bgGlowSmall: {
+    position: "absolute",
+    bottom: "20%",
+    right: "20%",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#4F46E5",
+    opacity: 0.04,
   },
   logoWrap: {
     alignItems: "center",
     gap: 10,
   },
   logoIconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 22,
+    width: 88,
+    height: 88,
+    borderRadius: 24,
     overflow: "hidden",
     shadowColor: "#9B7BF7",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 24,
   },
   logoIcon: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
   },
   logoName: {
     color: "#EEE8FF",
-    fontSize: 28,
+    fontSize: 30,
     fontFamily: "Lexend_700Bold",
     letterSpacing: -0.5,
   },
@@ -240,17 +264,17 @@ const s = StyleSheet.create({
   },
   terminal: {
     width: SCREEN_WIDTH - 48,
-    maxWidth: 400,
+    maxWidth: 420,
     backgroundColor: "#0F0F1A",
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "#2A2A3D",
     overflow: "hidden",
     shadowColor: "#9B7BF7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 20,
   },
   headerBar: {
     flexDirection: "row",
@@ -278,7 +302,7 @@ const s = StyleSheet.create({
   },
   body: {
     padding: 16,
-    minHeight: 160,
+    minHeight: 180,
   },
   line: {
     color: "#9B7BF7",
@@ -310,7 +334,15 @@ const s = StyleSheet.create({
     borderRadius: 2,
     shadowColor: "#9B7BF7",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
+  versionTag: {
+    color: "#2E2A3A",
+    fontSize: 10,
+    fontFamily: FONT_MONO,
+    letterSpacing: 1.5,
+    position: "absolute",
+    bottom: 40,
   },
 });

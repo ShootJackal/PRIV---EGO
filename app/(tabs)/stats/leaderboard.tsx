@@ -7,14 +7,18 @@ import {
   Animated,
   RefreshControl,
   Dimensions,
+  TouchableOpacity,
+  Platform,
 } from "react-native";
 import { Stack } from "expo-router";
-import { Trophy, Flame, TrendingUp, Clock, CheckCircle } from "lucide-react-native";
+import { Trophy, Flame, TrendingUp, Clock, CheckCircle, Swords } from "lucide-react-native";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { LeaderboardEntry } from "../../../types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+type TabId = "ALL" | "SF" | "MX" | "VS";
 
 function getWeekRange(): string {
   const now = new Date();
@@ -47,6 +51,8 @@ function PodiumBlock({
   const slideAnim = useRef(new Animated.Value(40)).current;
 
   useEffect(() => {
+    scaleAnim.setValue(0);
+    slideAnim.setValue(40);
     const delay = place === 1 ? 200 : place === 2 ? 400 : 500;
     Animated.parallel([
       Animated.spring(scaleAnim, {
@@ -63,7 +69,7 @@ function PodiumBlock({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [scaleAnim, slideAnim, place]);
+  }, [scaleAnim, slideAnim, place, entry]);
 
   const heights: Record<number, number> = { 1: 110, 2: 80, 3: 60 };
   const medalColors: Record<number, string> = {
@@ -192,24 +198,33 @@ function RankRow({
   const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(20);
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
-        delay: 600 + index * 60,
+        delay: 100 + index * 55,
         useNativeDriver: true,
       }),
       Animated.spring(slideAnim, {
         toValue: 0,
-        delay: 600 + index * 60,
+        delay: 100 + index * 55,
         speed: 20,
         bounciness: 4,
         useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, slideAnim, index]);
+  }, [fadeAnim, slideAnim, index, entry]);
 
   const barPct = maxHours > 0 ? Math.round((entry.weeklyHours / maxHours) * 100) : 0;
+
+  const locColor =
+    entry.location === "SF"
+      ? "#3B82F6"
+      : entry.location === "MX"
+      ? "#EF4444"
+      : colors.textMuted + "60";
 
   return (
     <Animated.View
@@ -256,6 +271,13 @@ function RankRow({
           >
             {entry.collectorName}
           </Text>
+          {entry.location !== "OTHER" && (
+            <View style={[rankStyles.locBadge, { backgroundColor: locColor + "22", borderColor: locColor + "44" }]}>
+              <Text style={[rankStyles.locText, { color: locColor, fontFamily: "Lexend_700Bold" }]}>
+                {entry.location}
+              </Text>
+            </View>
+          )}
           {isYou && (
             <View
               style={[
@@ -280,7 +302,13 @@ function RankRow({
             style={[
               rankStyles.barFill,
               {
-                backgroundColor: isYou ? colors.accent : colors.textMuted + "40",
+                backgroundColor: isYou
+                  ? colors.accent
+                  : entry.location === "SF"
+                  ? "#3B82F6"
+                  : entry.location === "MX"
+                  ? "#EF4444"
+                  : colors.textMuted + "40",
                 width: `${barPct}%` as any,
               },
             ]}
@@ -327,12 +355,231 @@ function RankRow({
   );
 }
 
+interface TeamStats {
+  totalHours: number;
+  avgHours: number;
+  completed: number;
+  assigned: number;
+  members: number;
+  completionRate: number;
+  topCollector: string;
+  topHours: number;
+}
+
+function computeTeamStats(entries: LeaderboardEntry[]): TeamStats {
+  if (entries.length === 0) {
+    return { totalHours: 0, avgHours: 0, completed: 0, assigned: 0, members: 0, completionRate: 0, topCollector: "—", topHours: 0 };
+  }
+  const totalHours = entries.reduce((s, e) => s + e.weeklyHours, 0);
+  const completed = entries.reduce((s, e) => s + e.weeklyCompleted, 0);
+  const assigned = entries.reduce((s, e) => s + e.weeklyAssigned, 0);
+  const top = entries[0];
+  return {
+    totalHours: Math.round(totalHours * 10) / 10,
+    avgHours: Math.round((totalHours / entries.length) * 10) / 10,
+    completed,
+    assigned,
+    members: entries.length,
+    completionRate: assigned > 0 ? Math.round((completed / assigned) * 100) : 0,
+    topCollector: top.collectorName,
+    topHours: top.weeklyHours,
+  };
+}
+
+function VSScreen({
+  sfEntries,
+  mxEntries,
+  colors,
+  isDark,
+}: {
+  sfEntries: LeaderboardEntry[];
+  mxEntries: LeaderboardEntry[];
+  colors: ReturnType<typeof useTheme>["colors"];
+  isDark: boolean;
+}) {
+  const sfStats = useMemo(() => computeTeamStats(sfEntries), [sfEntries]);
+  const mxStats = useMemo(() => computeTeamStats(mxEntries), [mxEntries]);
+
+  const slideIn = useRef(new Animated.Value(30)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    slideIn.setValue(30);
+    fadeIn.setValue(0);
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.spring(slideIn, { toValue: 0, speed: 16, bounciness: 6, useNativeDriver: true }),
+    ]).start();
+  }, [fadeIn, slideIn]);
+
+  const maxHrs = Math.max(sfStats.totalHours, mxStats.totalHours, 1);
+  const sfPct = sfStats.totalHours / maxHrs;
+  const mxPct = mxStats.totalHours / maxHrs;
+
+  const sfWins = [
+    sfStats.totalHours > mxStats.totalHours,
+    sfStats.avgHours > mxStats.avgHours,
+    sfStats.completionRate > mxStats.completionRate,
+    sfStats.completed > mxStats.completed,
+  ].filter(Boolean).length;
+  const mxWins = 4 - sfWins;
+
+  const vsMetrics: { label: string; sf: string; mx: string; sfWin: boolean }[] = [
+    {
+      label: "Total Hours",
+      sf: `${sfStats.totalHours}h`,
+      mx: `${mxStats.totalHours}h`,
+      sfWin: sfStats.totalHours >= mxStats.totalHours,
+    },
+    {
+      label: "Avg Hours / Collector",
+      sf: `${sfStats.avgHours}h`,
+      mx: `${mxStats.avgHours}h`,
+      sfWin: sfStats.avgHours >= mxStats.avgHours,
+    },
+    {
+      label: "Completion Rate",
+      sf: `${sfStats.completionRate}%`,
+      mx: `${mxStats.completionRate}%`,
+      sfWin: sfStats.completionRate >= mxStats.completionRate,
+    },
+    {
+      label: "Tasks Completed",
+      sf: `${sfStats.completed}`,
+      mx: `${mxStats.completed}`,
+      sfWin: sfStats.completed >= mxStats.completed,
+    },
+  ];
+
+  return (
+    <Animated.View style={{ opacity: fadeIn, transform: [{ translateY: slideIn }] }}>
+      <View style={vsStyles.battleCard}>
+        <View style={[vsStyles.teamSide, { borderColor: "#3B82F630" }]}>
+          <View style={[vsStyles.teamCircle, { backgroundColor: "#3B82F615", borderColor: "#3B82F6" }]}>
+            <Text style={[vsStyles.teamEmoji]}>🌉</Text>
+          </View>
+          <Text style={[vsStyles.teamLabel, { color: "#3B82F6", fontFamily: "Lexend_700Bold" }]}>SF</Text>
+          <Text style={[vsStyles.teamCount, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+            {sfStats.members} collectors
+          </Text>
+          <Text style={[vsStyles.teamHours, { color: "#3B82F6", fontFamily: "Lexend_700Bold" }]}>
+            {sfStats.totalHours}h
+          </Text>
+        </View>
+
+        <View style={vsStyles.vsCenter}>
+          <View style={[vsStyles.vsCircle, { backgroundColor: isDark ? colors.bgElevated : colors.bgInput, borderColor: colors.border }]}>
+            <Swords size={18} color={colors.textMuted} />
+          </View>
+          <Text style={[vsStyles.vsText, { color: colors.textMuted, fontFamily: "Lexend_700Bold" }]}>VS</Text>
+          <View style={[vsStyles.scorePill, { backgroundColor: isDark ? colors.bgElevated : colors.bgInput }]}>
+            <Text style={[vsStyles.scoreNum, { color: "#3B82F6", fontFamily: "Lexend_700Bold" }]}>{sfWins}</Text>
+            <Text style={[vsStyles.scoreDash, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>–</Text>
+            <Text style={[vsStyles.scoreNum, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>{mxWins}</Text>
+          </View>
+        </View>
+
+        <View style={[vsStyles.teamSide, { borderColor: "#EF444430" }]}>
+          <View style={[vsStyles.teamCircle, { backgroundColor: "#EF444415", borderColor: "#EF4444" }]}>
+            <Text style={vsStyles.teamEmoji}>🌮</Text>
+          </View>
+          <Text style={[vsStyles.teamLabel, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>MX</Text>
+          <Text style={[vsStyles.teamCount, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+            {mxStats.members} collectors
+          </Text>
+          <Text style={[vsStyles.teamHours, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>
+            {mxStats.totalHours}h
+          </Text>
+        </View>
+      </View>
+
+      <View style={[vsStyles.barsCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <Text style={[vsStyles.barsTitle, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>
+          TOTAL HOURS THIS WEEK
+        </Text>
+        <View style={vsStyles.barRow}>
+          <Text style={[vsStyles.barLabel, { color: "#3B82F6", fontFamily: "Lexend_600SemiBold" }]}>SF</Text>
+          <View style={[vsStyles.barTrack, { backgroundColor: isDark ? "#1a1a2e" : "#e8eaf0" }]}>
+            <View style={[vsStyles.barFill, { backgroundColor: "#3B82F6", width: `${sfPct * 100}%` as any }]} />
+          </View>
+          <Text style={[vsStyles.barValue, { color: "#3B82F6", fontFamily: "Lexend_700Bold" }]}>{sfStats.totalHours}h</Text>
+        </View>
+        <View style={vsStyles.barRow}>
+          <Text style={[vsStyles.barLabel, { color: "#EF4444", fontFamily: "Lexend_600SemiBold" }]}>MX</Text>
+          <View style={[vsStyles.barTrack, { backgroundColor: isDark ? "#1a1a2e" : "#e8eaf0" }]}>
+            <View style={[vsStyles.barFill, { backgroundColor: "#EF4444", width: `${mxPct * 100}%` as any }]} />
+          </View>
+          <Text style={[vsStyles.barValue, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>{mxStats.totalHours}h</Text>
+        </View>
+      </View>
+
+      <View style={[vsStyles.metricsCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        {vsMetrics.map((m, i) => (
+          <View
+            key={`vm_${i}`}
+            style={[
+              vsStyles.metricRow,
+              i < vsMetrics.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+            ]}
+          >
+            <View style={vsStyles.metricSfCell}>
+              <Text style={[vsStyles.metricVal, { color: m.sfWin ? "#3B82F6" : colors.textSecondary, fontFamily: m.sfWin ? "Lexend_700Bold" : "Lexend_400Regular" }]}>
+                {m.sf}
+              </Text>
+              {m.sfWin && <View style={[vsStyles.winDot, { backgroundColor: "#3B82F6" }]} />}
+            </View>
+            <Text style={[vsStyles.metricLabel, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>
+              {m.label}
+            </Text>
+            <View style={vsStyles.metricMxCell}>
+              {!m.sfWin && <View style={[vsStyles.winDot, { backgroundColor: "#EF4444" }]} />}
+              <Text style={[vsStyles.metricVal, { color: !m.sfWin ? "#EF4444" : colors.textSecondary, fontFamily: !m.sfWin ? "Lexend_700Bold" : "Lexend_400Regular" }]}>
+                {m.mx}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View style={[vsStyles.mvpCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <Text style={[vsStyles.mvpTitle, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>TOP PERFORMERS</Text>
+        <View style={vsStyles.mvpRow}>
+          <View style={vsStyles.mvpItem}>
+            <View style={[vsStyles.mvpAvatar, { backgroundColor: "#3B82F615", borderColor: "#3B82F640" }]}>
+              <Text style={[vsStyles.mvpInitials, { color: "#3B82F6", fontFamily: "Lexend_700Bold" }]}>
+                {sfStats.topCollector.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
+              </Text>
+            </View>
+            <Text style={[vsStyles.mvpName, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]} numberOfLines={1}>
+              {sfStats.topCollector}
+            </Text>
+            <Text style={[vsStyles.mvpHours, { color: "#3B82F6", fontFamily: "Lexend_700Bold" }]}>{sfStats.topHours}h</Text>
+          </View>
+          <View style={[vsStyles.mvpDivider, { backgroundColor: colors.border }]} />
+          <View style={vsStyles.mvpItem}>
+            <View style={[vsStyles.mvpAvatar, { backgroundColor: "#EF444415", borderColor: "#EF444440" }]}>
+              <Text style={[vsStyles.mvpInitials, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>
+                {mxStats.topCollector.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
+              </Text>
+            </View>
+            <Text style={[vsStyles.mvpName, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]} numberOfLines={1}>
+              {mxStats.topCollector}
+            </Text>
+            <Text style={[vsStyles.mvpHours, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>{mxStats.topHours}h</Text>
+          </View>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function LeaderboardScreen() {
   const { colors, isDark } = useTheme();
   const { leaderboard, isLoadingLeaderboard, selectedCollectorName, refreshData } =
     useCollection();
   const [refreshing, setRefreshing] = useState(false);
-
+  const [activeTab, setActiveTab] = useState<TabId>("ALL");
+  const tabAnim = useRef(new Animated.Value(0)).current;
   const headerFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -343,19 +590,25 @@ export default function LeaderboardScreen() {
     }).start();
   }, [headerFade]);
 
+  const handleTabChange = useCallback(
+    (tab: TabId) => {
+      Animated.timing(tabAnim, { toValue: 0, duration: 120, useNativeDriver: true }).start(() => {
+        setActiveTab(tab);
+        Animated.timing(tabAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+      });
+    },
+    [tabAnim]
+  );
+
+  useEffect(() => {
+    tabAnim.setValue(1);
+  }, [tabAnim]);
+
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
     refreshData();
     setTimeout(() => setRefreshing(false), 1200);
   }, [refreshData]);
-
-  const maxHours = useMemo(() => {
-    if (leaderboard.length === 0) return 1;
-    return Math.max(...leaderboard.map((e) => e.weeklyHours), 1);
-  }, [leaderboard]);
-
-  const top3 = useMemo(() => leaderboard.slice(0, 3), [leaderboard]);
-  const rest = useMemo(() => leaderboard.slice(3), [leaderboard]);
 
   const normalizedSelected = selectedCollectorName
     .replace(/\s*\(.*?\)\s*$/g, "")
@@ -367,7 +620,38 @@ export default function LeaderboardScreen() {
     [normalizedSelected]
   );
 
+  const sfEntries = useMemo(
+    () => leaderboard.filter((e) => e.location === "SF"),
+    [leaderboard]
+  );
+  const mxEntries = useMemo(
+    () => leaderboard.filter((e) => e.location === "MX"),
+    [leaderboard]
+  );
+
+  const filteredLeaderboard = useMemo(() => {
+    if (activeTab === "ALL") return leaderboard;
+    if (activeTab === "SF") return sfEntries.map((e, i) => ({ ...e, rank: i + 1 }));
+    if (activeTab === "MX") return mxEntries.map((e, i) => ({ ...e, rank: i + 1 }));
+    return leaderboard;
+  }, [activeTab, leaderboard, sfEntries, mxEntries]);
+
+  const maxHours = useMemo(() => {
+    if (filteredLeaderboard.length === 0) return 1;
+    return Math.max(...filteredLeaderboard.map((e) => e.weeklyHours), 1);
+  }, [filteredLeaderboard]);
+
+  const top3 = useMemo(() => filteredLeaderboard.slice(0, 3), [filteredLeaderboard]);
+  const rest = useMemo(() => filteredLeaderboard.slice(3), [filteredLeaderboard]);
+
   const weekRange = useMemo(() => getWeekRange(), []);
+
+  const TABS: { id: TabId; label: string; color?: string }[] = [
+    { id: "ALL", label: "ALL" },
+    { id: "SF", label: "SF 🌉", color: "#3B82F6" },
+    { id: "MX", label: "MX 🌮", color: "#EF4444" },
+    { id: "VS", label: "⚔️ VS" },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
@@ -435,72 +719,131 @@ export default function LeaderboardScreen() {
           </View>
         </Animated.View>
 
-        {leaderboard.length === 0 && !isLoadingLeaderboard && (
-          <View style={styles.emptyWrap}>
-            <Trophy size={40} color={colors.border} />
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" },
-              ]}
-            >
-              No Data Yet
-            </Text>
-            <Text
-              style={[
-                styles.emptyText,
-                { color: colors.textMuted, fontFamily: "Lexend_400Regular" },
-              ]}
-            >
-              Leaderboard builds as collectors log work this week
-            </Text>
-          </View>
-        )}
+        <View style={[styles.tabBar, { backgroundColor: isDark ? colors.bgElevated : colors.bgInput, borderColor: colors.border }]}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const tabColor = tab.color ?? colors.accent;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[
+                  styles.tab,
+                  isActive && [
+                    styles.tabActive,
+                    {
+                      backgroundColor: tab.id === "VS"
+                        ? (isDark ? colors.bgCard : "#fff")
+                        : tabColor + "18",
+                      borderColor: tab.id === "VS" ? colors.border : tabColor + "50",
+                    },
+                  ],
+                ]}
+                onPress={() => handleTabChange(tab.id)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    {
+                      color: isActive
+                        ? tab.id === "VS"
+                          ? colors.textPrimary
+                          : tabColor
+                        : colors.textMuted,
+                      fontFamily: isActive ? "Lexend_700Bold" : "Lexend_500Medium",
+                    },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-        {top3.length > 0 && (
-          <View style={styles.podiumRow}>
-            <PodiumBlock
-              entry={top3[1] ?? null}
-              place={2}
-              maxHours={maxHours}
+        <Animated.View style={{ opacity: tabAnim }}>
+          {activeTab === "VS" ? (
+            <VSScreen
+              sfEntries={sfEntries}
+              mxEntries={mxEntries}
               colors={colors}
               isDark={isDark}
-              isYou={top3[1] ? isYou(top3[1].collectorName) : false}
             />
-            <PodiumBlock
-              entry={top3[0]}
-              place={1}
-              maxHours={maxHours}
-              colors={colors}
-              isDark={isDark}
-              isYou={isYou(top3[0].collectorName)}
-            />
-            <PodiumBlock
-              entry={top3[2] ?? null}
-              place={3}
-              maxHours={maxHours}
-              colors={colors}
-              isDark={isDark}
-              isYou={top3[2] ? isYou(top3[2].collectorName) : false}
-            />
-          </View>
-        )}
+          ) : (
+            <>
+              {filteredLeaderboard.length === 0 && !isLoadingLeaderboard && (
+                <View style={styles.emptyWrap}>
+                  <Trophy size={40} color={colors.border} />
+                  <Text
+                    style={[
+                      styles.emptyTitle,
+                      { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" },
+                    ]}
+                  >
+                    No Data Yet
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      { color: colors.textMuted, fontFamily: "Lexend_400Regular" },
+                    ]}
+                  >
+                    {activeTab === "SF"
+                      ? "No SF collectors found this week"
+                      : activeTab === "MX"
+                      ? "No MX collectors found this week"
+                      : "Leaderboard builds as collectors log work this week"}
+                  </Text>
+                </View>
+              )}
 
-        {rest.length > 0 && (
-          <View style={styles.listSection}>
-            {rest.map((entry, idx) => (
-              <RankRow
-                key={`rank_${entry.rank}`}
-                entry={entry}
-                maxHours={maxHours}
-                isYou={isYou(entry.collectorName)}
-                index={idx}
-                colors={colors}
-                isDark={isDark}
-              />
-            ))}
-          </View>
-        )}
+              {top3.length > 0 && (
+                <View style={styles.podiumRow}>
+                  <PodiumBlock
+                    entry={top3[1] ?? null}
+                    place={2}
+                    maxHours={maxHours}
+                    colors={colors}
+                    isDark={isDark}
+                    isYou={top3[1] ? isYou(top3[1].collectorName) : false}
+                  />
+                  <PodiumBlock
+                    entry={top3[0]}
+                    place={1}
+                    maxHours={maxHours}
+                    colors={colors}
+                    isDark={isDark}
+                    isYou={isYou(top3[0].collectorName)}
+                  />
+                  <PodiumBlock
+                    entry={top3[2] ?? null}
+                    place={3}
+                    maxHours={maxHours}
+                    colors={colors}
+                    isDark={isDark}
+                    isYou={top3[2] ? isYou(top3[2].collectorName) : false}
+                  />
+                </View>
+              )}
+
+              {rest.length > 0 && (
+                <View style={styles.listSection}>
+                  {rest.map((entry, idx) => (
+                    <RankRow
+                      key={`rank_${activeTab}_${entry.rank}`}
+                      entry={entry}
+                      maxHours={maxHours}
+                      isYou={isYou(entry.collectorName)}
+                      index={idx}
+                      colors={colors}
+                      isDark={isDark}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          )}
+        </Animated.View>
 
         <View style={styles.spacer} />
       </ScrollView>
@@ -582,9 +925,20 @@ const rankStyles = StyleSheet.create({
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 6,
+    flexWrap: "wrap" as const,
   },
   name: {
     fontSize: 14,
+  },
+  locBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  locText: {
+    fontSize: 8,
+    letterSpacing: 0.5,
   },
   youBadge: {
     paddingHorizontal: 6,
@@ -619,13 +973,199 @@ const rankStyles = StyleSheet.create({
   },
 });
 
+const vsStyles = StyleSheet.create({
+  battleCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    marginBottom: 16,
+    gap: 8,
+  },
+  teamSide: {
+    flex: 1,
+    alignItems: "center" as const,
+    gap: 6,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  teamCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  teamEmoji: {
+    fontSize: 24,
+  },
+  teamLabel: {
+    fontSize: 22,
+    letterSpacing: 2,
+  },
+  teamCount: {
+    fontSize: 11,
+  },
+  teamHours: {
+    fontSize: 18,
+  },
+  vsCenter: {
+    alignItems: "center" as const,
+    gap: 6,
+  },
+  vsCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  vsText: {
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  scorePill: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
+  },
+  scoreNum: {
+    fontSize: 16,
+  },
+  scoreDash: {
+    fontSize: 14,
+  },
+  barsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
+  barsTitle: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  barRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+  },
+  barLabel: {
+    fontSize: 12,
+    width: 24,
+  },
+  barTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: 5,
+    overflow: "hidden" as const,
+  },
+  barFill: {
+    height: 10,
+    borderRadius: 5,
+  },
+  barValue: {
+    fontSize: 13,
+    width: 40,
+    textAlign: "right" as const,
+  },
+  metricsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden" as const,
+    marginBottom: 12,
+  },
+  metricRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  metricSfCell: {
+    flex: 1,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 5,
+  },
+  metricMxCell: {
+    flex: 1,
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "flex-end" as const,
+    gap: 5,
+  },
+  metricLabel: {
+    fontSize: 11,
+    textAlign: "center" as const,
+    flex: 1.2,
+  },
+  metricVal: {
+    fontSize: 15,
+  },
+  winDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  mvpCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
+  mvpTitle: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
+  mvpRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+  },
+  mvpItem: {
+    flex: 1,
+    alignItems: "center" as const,
+    gap: 6,
+  },
+  mvpDivider: {
+    width: 1,
+    height: 60,
+    marginHorizontal: 8,
+  },
+  mvpAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  mvpInitials: {
+    fontSize: 15,
+  },
+  mvpName: {
+    fontSize: 12,
+    textAlign: "center" as const,
+    maxWidth: 110,
+  },
+  mvpHours: {
+    fontSize: 14,
+  },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   header: {
     alignItems: "center" as const,
-    marginBottom: 28,
+    marginBottom: 20,
     gap: 8,
   },
   trophyCircle: {
@@ -652,6 +1192,29 @@ const styles = StyleSheet.create({
   },
   weekText: {
     fontSize: 12,
+  },
+  tabBar: {
+    flexDirection: "row" as const,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 4,
+    marginBottom: 20,
+    gap: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center" as const,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  tabActive: {
+    borderWidth: 1,
+  },
+  tabText: {
+    fontSize: 12,
+    letterSpacing: 0.5,
   },
   podiumRow: {
     flexDirection: "row" as const,

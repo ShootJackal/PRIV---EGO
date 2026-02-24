@@ -118,4 +118,5 @@ export interface LeaderboardEntry {
   weeklyCompleted: number;
   weeklyAssigned: number;
   rank: number;
+  location: "SF" | "MX" | "OTHER";
 }

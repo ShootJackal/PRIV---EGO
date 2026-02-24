@@ -34,6 +34,16 @@ function normalizeCollectorName(name: string): string {
   return name.replace(/\s*\(.*?\)\s*$/g, "").trim();
 }
 
+function extractLocation(name: string): "SF" | "MX" | "OTHER" {
+  const match = name.match(/\(([^)]+)\)\s*$/);
+  if (match) {
+    const tag = match[1].toUpperCase().trim();
+    if (tag === "SF") return "SF";
+    if (tag === "MX") return "MX";
+  }
+  return "OTHER";
+}
+
 function mergeCollectors(raw: Collector[]): Collector[] {
   const map = new Map<string, Collector>();
   for (const c of raw) {
@@ -186,13 +196,14 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
       const allEntries = await fetchFullLog();
       const weekStart = getWeekStart();
 
-      const collectorMap = new Map<string, { hours: number; completed: number; assigned: number }>();
+      const collectorMap = new Map<string, { hours: number; completed: number; assigned: number; location: "SF" | "MX" | "OTHER" }>();
       for (const entry of allEntries) {
         const d = new Date(entry.assignedDate);
         if (isNaN(d.getTime()) || d < weekStart) continue;
+        const location = extractLocation(entry.collector);
         const name = normalizeCollectorName(entry.collector);
         if (!collectorMap.has(name)) {
-          collectorMap.set(name, { hours: 0, completed: 0, assigned: 0 });
+          collectorMap.set(name, { hours: 0, completed: 0, assigned: 0, location });
         }
         const stats = collectorMap.get(name)!;
         stats.hours += entry.loggedHours;
@@ -206,6 +217,7 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
           weeklyHours: Math.round(stats.hours * 10) / 10,
           weeklyCompleted: stats.completed,
           weeklyAssigned: stats.assigned,
+          location: stats.location,
           rank: 0,
         }))
         .sort((a, b) => b.weeklyHours - a.weeklyHours)
