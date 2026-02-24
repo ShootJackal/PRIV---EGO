@@ -1,6 +1,6 @@
 import { Tabs, router } from "expo-router";
 import { Send, Wrench, BarChart3, Radio } from "lucide-react-native";
-import React, { useRef, useCallback } from "react";
+import React, { useRef, useCallback, useEffect } from "react";
 import {
   Platform,
   View,
@@ -39,6 +39,38 @@ const TAB_CONFIG: Record<TabName, { title: string; icon: (color: string, size: n
     icon: (color, size) => <Wrench size={size} color={color} />,
   },
 };
+
+function AlertDot() {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.4,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  return (
+    <Animated.View
+      style={[
+        barStyles.alertDot,
+        { opacity: pulseAnim },
+      ]}
+    />
+  );
+}
 
 function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
   const { colors, isDark } = useTheme();
@@ -175,6 +207,7 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
                     ]}
                   />
                 )}
+                {isLive && !isFocused && <AlertDot />}
               </View>
               <Text
                 style={[
@@ -352,6 +385,17 @@ const barStyles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  alertDot: {
+    position: "absolute",
+    top: 1,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF3B30",
+    borderWidth: 1.5,
+    borderColor: "#1A1A1F",
   },
   label: {
     textTransform: "uppercase",
