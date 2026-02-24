@@ -13,7 +13,6 @@ import {
   MessageSquare,
   Clock,
   AlertTriangle,
-  FileSpreadsheet,
   ChevronRight,
   Moon,
   Sun,
@@ -28,6 +27,10 @@ import {
   ClipboardList,
   BarChart3,
   LayoutDashboard,
+  ExternalLink,
+  Palette,
+  Database,
+  Zap,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
@@ -48,31 +51,48 @@ if (Platform.OS !== "web") {
   });
 }
 
+const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
+
 const SHEET_PAGES = [
-  { id: "log", label: "Assignment Log", icon: ClipboardList },
-  { id: "taskActuals", label: "Task Actuals", icon: BarChart3 },
-  { id: "admin", label: "Admin Dashboard", icon: LayoutDashboard },
+  { id: "log", label: "Assignment Log", icon: ClipboardList, desc: "View task assignment history" },
+  { id: "taskActuals", label: "Task Actuals", icon: BarChart3, desc: "Collection progress by task" },
+  { id: "admin", label: "Admin Dashboard", icon: LayoutDashboard, desc: "Overview & system health" },
 ];
 
-const TIMER_DURATIONS = [5, 10, 15, 20, 25, 30];
+const TIMER_PRESETS = [
+  { mins: 5, label: "5m", color: "#30CC78" },
+  { mins: 10, label: "10m", color: "#2563EB" },
+  { mins: 15, label: "15m", color: "#7C3AED" },
+  { mins: 20, label: "20m", color: "#F0A020" },
+  { mins: 25, label: "25m", color: "#E03030" },
+  { mins: 30, label: "30m", color: "#DC2626" },
+];
 
-function SectionHeader({ label }: { label: string }) {
+function SectionHeader({ label, icon }: { label: string; icon?: React.ReactNode }) {
   const { colors } = useTheme();
   return (
-    <Text style={[sectionStyles.label, { color: colors.textMuted, fontFamily: "Lexend_700Bold" }]}>
-      {label}
-    </Text>
+    <View style={sectionStyles.row}>
+      {icon}
+      <Text style={[sectionStyles.label, { color: colors.textMuted, fontFamily: "Lexend_700Bold" }]}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
 const sectionStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 2,
+  },
   label: {
     fontSize: 11,
     letterSpacing: 1.4,
     textTransform: "uppercase" as const,
-    marginBottom: 10,
-    marginTop: 4,
-    paddingHorizontal: 2,
   },
 });
 
@@ -82,12 +102,12 @@ function CompactTimer() {
   const [secondsLeft, setSecondsLeft] = useState(10 * 60);
   const [running, setRunning] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   const totalSeconds = selectedMinutes * 60;
-  const progress = (totalSeconds - secondsLeft) / totalSeconds;
+  const progress = totalSeconds > 0 ? (totalSeconds - secondsLeft) / totalSeconds : 0;
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
 
@@ -110,6 +130,14 @@ function CompactTimer() {
     }
     pulseAnim.setValue(1);
   }, [finished, pulseAnim]);
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress * 100,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, progressAnim]);
 
   const fireAlarm = useCallback(async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -162,7 +190,6 @@ function CompactTimer() {
       setSecondsLeft(mins * 60);
       setRunning(false);
       setFinished(false);
-      setShowPicker(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
     []
@@ -189,114 +216,106 @@ function CompactTimer() {
     };
   }, [running, secondsLeft, fireAlarm]);
 
+  const activePreset = TIMER_PRESETS.find(p => p.mins === selectedMinutes);
   const ringColor = finished
     ? colors.cancel
     : running
-    ? colors.accent
+    ? activePreset?.color ?? colors.accent
     : colors.textMuted;
 
   return (
     <Animated.View style={[timerStyles.card, {
       backgroundColor: colors.bgCard,
-      borderColor: colors.border,
+      borderColor: finished ? colors.cancel + '40' : colors.border,
       shadowColor: colors.shadow,
       transform: [{ scale: pulseAnim }],
     }]}>
-      <View style={timerStyles.row}>
-        <View style={[timerStyles.timeCircle, {
-          borderColor: ringColor,
-          backgroundColor: finished ? colors.cancel + '15' : running ? colors.accentSoft : colors.bgElevated,
+      <View style={timerStyles.topRow}>
+        <View style={[timerStyles.timeDisplay, {
+          borderColor: ringColor + '60',
+          backgroundColor: finished ? colors.cancel + '10' : running ? (activePreset?.color ?? colors.accent) + '08' : colors.bgElevated,
         }]}>
           <Text style={[timerStyles.timeText, {
             color: finished ? colors.cancel : running ? colors.textPrimary : colors.textSecondary,
-            fontFamily: "Lexend_700Bold",
+            fontFamily: FONT_MONO,
           }]}>
             {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
           </Text>
           {finished && (
-            <Text style={[timerStyles.doneText, { color: colors.cancel, fontFamily: "Lexend_700Bold" }]}>UP</Text>
+            <Text style={[timerStyles.doneLabel, { color: colors.cancel, fontFamily: FONT_MONO }]}>DONE</Text>
           )}
         </View>
 
-        <TouchableOpacity
-          style={[timerStyles.durBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}
-          onPress={() => setShowPicker((v) => !v)}
-          activeOpacity={0.75}
-        >
-          <Timer size={12} color={colors.accent} />
-          <Text style={[timerStyles.durText, { color: colors.accent, fontFamily: "Lexend_700Bold" }]}>
-            {selectedMinutes}m
-          </Text>
-          <ChevronDown size={10} color={colors.accent} />
-        </TouchableOpacity>
+        <View style={timerStyles.controlCol}>
+          <View style={timerStyles.presetRow}>
+            {TIMER_PRESETS.map((p) => (
+              <TouchableOpacity
+                key={p.mins}
+                style={[
+                  timerStyles.presetChip,
+                  {
+                    backgroundColor: p.mins === selectedMinutes ? (p.color + '20') : colors.bgInput,
+                    borderColor: p.mins === selectedMinutes ? (p.color + '50') : 'transparent',
+                  },
+                ]}
+                onPress={() => selectDuration(p.mins)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    timerStyles.presetText,
+                    {
+                      color: p.mins === selectedMinutes ? p.color : colors.textMuted,
+                      fontFamily: p.mins === selectedMinutes ? "Lexend_700Bold" : "Lexend_400Regular",
+                    },
+                  ]}
+                >
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        <View style={timerStyles.btnGroup}>
-          <TouchableOpacity
-            style={[timerStyles.resetBtn, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
-            onPress={reset}
-            activeOpacity={0.75}
-          >
-            <RotateCcw size={15} color={colors.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[timerStyles.playBtn, {
-              backgroundColor: finished ? colors.cancel : running ? colors.completeBg : colors.accent,
-              shadowColor: colors.shadow,
-            }]}
-            onPress={running ? pause : start}
-            activeOpacity={0.85}
-          >
-            {running ? (
-              <Pause size={18} color={finished ? colors.white : colors.complete} />
-            ) : (
-              <Play size={18} color={colors.white} />
-            )}
-          </TouchableOpacity>
+          <View style={timerStyles.btnRow}>
+            <TouchableOpacity
+              style={[timerStyles.resetBtn, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
+              onPress={reset}
+              activeOpacity={0.75}
+            >
+              <RotateCcw size={14} color={colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[timerStyles.playBtn, {
+                backgroundColor: finished ? colors.cancel : running ? colors.completeBg : (activePreset?.color ?? colors.accent),
+                shadowColor: colors.shadow,
+              }]}
+              onPress={running ? pause : start}
+              activeOpacity={0.85}
+            >
+              {running ? (
+                <Pause size={18} color={finished ? colors.white : colors.complete} />
+              ) : (
+                <Play size={18} color={colors.white} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       {!finished && (
         <View style={[timerStyles.progressBar, { backgroundColor: colors.bgInput }]}>
-          <View
+          <Animated.View
             style={[
               timerStyles.progressFill,
               {
-                backgroundColor: running ? colors.accent : colors.textMuted,
-                width: `${Math.round(progress * 100)}%` as any,
+                backgroundColor: ringColor,
+                width: progressAnim.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                }),
               },
             ]}
           />
-        </View>
-      )}
-
-      {showPicker && (
-        <View style={[timerStyles.pickerRow, { borderTopColor: colors.border }]}>
-          {TIMER_DURATIONS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[
-                timerStyles.pickerChip,
-                {
-                  backgroundColor: m === selectedMinutes ? colors.accent : colors.bgInput,
-                  borderColor: m === selectedMinutes ? colors.accent : colors.border,
-                },
-              ]}
-              onPress={() => selectDuration(m)}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[
-                  timerStyles.pickerText,
-                  {
-                    color: m === selectedMinutes ? colors.white : colors.textPrimary,
-                    fontFamily: m === selectedMinutes ? "Lexend_700Bold" : "Lexend_400Regular",
-                  },
-                ]}
-              >
-                {m}m
-              </Text>
-            </TouchableOpacity>
-          ))}
         </View>
       )}
     </Animated.View>
@@ -415,7 +434,7 @@ export default function ToolsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <SectionHeader label="My Profile" />
+        <SectionHeader label="My Profile" icon={<User size={12} color={colors.textMuted} />} />
 
         <View style={cardStyle}>
           <View style={styles.settingRow}>
@@ -483,11 +502,11 @@ export default function ToolsScreen() {
         )}
 
         <View style={styles.sectionGap} />
-        <SectionHeader label="Collection Timer" />
+        <SectionHeader label="Collection Timer" icon={<Timer size={12} color={colors.textMuted} />} />
         <CompactTimer />
 
         <View style={styles.sectionGap} />
-        <SectionHeader label="Appearance" />
+        <SectionHeader label="Appearance" icon={<Palette size={12} color={colors.textMuted} />} />
 
         <TouchableOpacity
           style={[cardStyle, styles.themeRow]}
@@ -503,14 +522,19 @@ export default function ToolsScreen() {
           >
             {isDark ? <Sun size={17} color="#F5A623" /> : <Moon size={17} color={colors.textSecondary} />}
           </View>
-          <Text style={[styles.themeLabel, { color: colors.textPrimary, fontFamily: "Lexend_500Medium" }]}>
-            {isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          </Text>
+          <View style={styles.themeContent}>
+            <Text style={[styles.themeLabel, { color: colors.textPrimary, fontFamily: "Lexend_500Medium" }]}>
+              {isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            </Text>
+            <Text style={[styles.themeSub, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+              {isDark ? "Easier on the eyes outdoors" : "Better for low-light collection"}
+            </Text>
+          </View>
           <ChevronRight size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         <View style={styles.sectionGap} />
-        <SectionHeader label="Quick Actions" />
+        <SectionHeader label="Quick Actions" icon={<Zap size={12} color={colors.textMuted} />} />
 
         <View style={styles.quickGrid}>
           <QuickCard
@@ -543,7 +567,7 @@ export default function ToolsScreen() {
         </View>
 
         <View style={styles.sectionGap} />
-        <SectionHeader label="Verify Data" />
+        <SectionHeader label="Verify Data" icon={<Database size={12} color={colors.textMuted} />} />
 
         <View style={cardStyle}>
           {SHEET_PAGES.map((page, idx) => {
@@ -562,10 +586,15 @@ export default function ToolsScreen() {
                   <View style={[styles.sheetIcon, { backgroundColor: colors.sheetsBg }]}>
                     <IconComp size={16} color={colors.sheets} />
                   </View>
-                  <Text style={[styles.sheetRowText, { color: colors.textPrimary, fontFamily: "Lexend_500Medium" }]}>
-                    {page.label}
-                  </Text>
-                  <ChevronRight size={16} color={colors.textMuted} />
+                  <View style={styles.sheetInfo}>
+                    <Text style={[styles.sheetRowText, { color: colors.textPrimary, fontFamily: "Lexend_500Medium" }]}>
+                      {page.label}
+                    </Text>
+                    <Text style={[styles.sheetDesc, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                      {page.desc}
+                    </Text>
+                  </View>
+                  <ExternalLink size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             );
@@ -653,52 +682,61 @@ const timerStyles = StyleSheet.create({
   card: {
     borderRadius: 18,
     borderWidth: 1,
-    padding: 12,
+    padding: 14,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.07,
     shadowRadius: 14,
     elevation: 4,
     marginBottom: 2,
   },
-  row: {
+  topRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    gap: 10,
+    gap: 14,
   },
-  timeCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  timeDisplay: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     borderWidth: 2.5,
     alignItems: "center" as const,
     justifyContent: "center" as const,
   },
   timeText: {
-    fontSize: 18,
-    letterSpacing: 0.5,
+    fontSize: 20,
+    fontWeight: "900" as const,
+    letterSpacing: 1,
   },
-  doneText: {
-    fontSize: 8,
-    letterSpacing: 2,
-    marginTop: -1,
+  doneLabel: {
+    fontSize: 7,
+    letterSpacing: 3,
+    marginTop: -2,
+    fontWeight: "800" as const,
   },
-  durBtn: {
+  controlCol: {
+    flex: 1,
+    gap: 10,
+  },
+  presetRow: {
     flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
+    flexWrap: "wrap" as const,
+    gap: 6,
+  },
+  presetChip: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
+    minWidth: 40,
+    alignItems: "center" as const,
   },
-  durText: {
-    fontSize: 13,
+  presetText: {
+    fontSize: 11,
   },
-  btnGroup: {
+  btnRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 8,
-    marginLeft: "auto" as const,
   },
   resetBtn: {
     width: 36,
@@ -709,9 +747,9 @@ const timerStyles = StyleSheet.create({
     justifyContent: "center" as const,
   },
   playBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center" as const,
     justifyContent: "center" as const,
     shadowOffset: { width: 0, height: 3 },
@@ -723,30 +761,11 @@ const timerStyles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
     overflow: "hidden" as const,
-    marginTop: 10,
+    marginTop: 12,
   },
   progressFill: {
     height: 3,
     borderRadius: 2,
-  },
-  pickerRow: {
-    flexDirection: "row" as const,
-    flexWrap: "wrap" as const,
-    gap: 7,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    marginTop: 10,
-  },
-  pickerChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    minWidth: 44,
-    alignItems: "center" as const,
-  },
-  pickerText: {
-    fontSize: 12,
   },
 });
 
@@ -815,7 +834,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 12,
   },
-  themeLabel: { flex: 1, fontSize: 15 },
+  themeContent: {
+    flex: 1,
+  },
+  themeLabel: { fontSize: 15 },
+  themeSub: { fontSize: 11, marginTop: 2 },
   quickGrid: {
     flexDirection: "row" as const,
     gap: 10,
@@ -849,7 +872,7 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     alignItems: "center" as const,
     paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingVertical: 14,
     gap: 12,
   },
   sheetDivider: { height: 1, marginLeft: 64 },
@@ -860,6 +883,10 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     justifyContent: "center" as const,
   },
-  sheetRowText: { flex: 1, fontSize: 15 },
+  sheetInfo: {
+    flex: 1,
+  },
+  sheetRowText: { fontSize: 14 },
+  sheetDesc: { fontSize: 11, marginTop: 2 },
   bottomSpacer: { height: 20 },
 });

@@ -7,8 +7,11 @@ import {
   Animated,
   Dimensions,
   Platform,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RefreshCw } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -57,7 +60,6 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
   const { colors, isDark } = useTheme();
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({});
   const cursorAnim = useRef(new Animated.Value(0)).current;
-  const scanlineAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const blink = Animated.loop(
@@ -69,14 +71,6 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
     blink.start();
     return () => blink.stop();
   }, [cursorAnim]);
-
-  useEffect(() => {
-    const scan = Animated.loop(
-      Animated.timing(scanlineAnim, { toValue: 1, duration: 4000, useNativeDriver: true })
-    );
-    scan.start();
-    return () => scan.stop();
-  }, [scanlineAnim]);
 
   useEffect(() => {
     lines.forEach((line) => {
@@ -91,20 +85,24 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
     });
   }, [lines]);
 
-  const termColor = isDark ? '#E03030' : '#2563EB';
-  const termDim = isDark ? '#5A4444' : '#8A8A9A';
+  const termAccent = colors.terminal;
+  const termDim = colors.terminalDim;
 
   return (
     <View style={cmdStyles.feed}>
-      <View style={[cmdStyles.headerBar, { borderBottomColor: termDim + '44' }]}>
+      <View style={[cmdStyles.headerBar, { borderBottomColor: termDim + '30' }]}>
         <View style={cmdStyles.dotRow}>
-          <View style={[cmdStyles.dot, { backgroundColor: '#FF5F57' }]} />
-          <View style={[cmdStyles.dot, { backgroundColor: '#FEBC2E' }]} />
-          <View style={[cmdStyles.dot, { backgroundColor: '#28C840' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#E03030' : '#FF5F57' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#F0A020' : '#FEBC2E' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#30CC78' : '#28C840' }]} />
         </View>
         <Text style={[cmdStyles.headerTitle, { color: termDim, fontFamily: FONT_MONO }]}>
-          ego-system — live
+          ego@system ~ live-feed
         </Text>
+        <View style={cmdStyles.headerRight}>
+          <View style={[cmdStyles.sessionDot, { backgroundColor: colors.terminalGreen }]} />
+          <Text style={[cmdStyles.sessionText, { color: termDim, fontFamily: FONT_MONO }]}>session</Text>
+        </View>
       </View>
 
       {lines.map((line) => {
@@ -114,7 +112,7 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
         const opacity = fadeAnims.current[line.id];
 
         const lineColor =
-          line.type === "header" ? termColor :
+          line.type === "header" ? termAccent :
           line.type === "cmd" ? colors.terminalGreen :
           line.type === "divider" ? termDim :
           line.type === "label" ? (isDark ? '#F0A020' : '#7A6B00') :
@@ -146,7 +144,7 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
                     color: lineColor,
                     fontFamily: FONT_MONO,
                     fontWeight: line.type === "header" ? "700" : "400",
-                    fontSize: line.type === "header" ? 13 : 11.5,
+                    fontSize: line.type === "header" ? 12.5 : 11,
                   },
                 ]}
               >
@@ -173,40 +171,30 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
   );
 }
 
-function LiveClock() {
-  const { colors } = useTheme();
-  const [time, setTime] = useState(new Date());
+function AnnouncementTicker({ items, colors, isDark }: { items: string[]; colors: ReturnType<typeof useTheme>["colors"]; isDark: boolean }) {
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), 10);
-    return () => clearInterval(id);
-  }, []);
-
-  const hh = String(time.getHours()).padStart(2, "0");
-  const mm = String(time.getMinutes()).padStart(2, "0");
-  const ss = String(time.getSeconds()).padStart(2, "0");
-  const ms = String(Math.floor(time.getMilliseconds() / 10)).padStart(2, "0");
-
-  return (
-    <Text style={[clockStyles.clock, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>
-      {hh}:{mm}:{ss}
-      <Text style={[clockStyles.ms, { color: colors.textMuted, fontFamily: FONT_MONO }]}>.{ms}</Text>
-    </Text>
-  );
-}
-
-function TickerScroll({ items, colors, isDark }: { items: string[]; colors: ReturnType<typeof useTheme>["colors"]; isDark: boolean }) {
-  const scrollX = useRef(new Animated.Value(0)).current;
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   useEffect(() => {
     if (!items.length) return;
-    const totalWidth = items.join("    ·    ").length * 8 + 200;
+    const totalWidth = items.join("    ·    ").length * 7.5 + 300;
     scrollX.setValue(SCREEN_WIDTH);
 
     const anim = Animated.loop(
       Animated.timing(scrollX, {
         toValue: -totalWidth,
-        duration: Math.max(totalWidth * 22, 5000),
+        duration: Math.max(totalWidth * 28, 8000),
         useNativeDriver: true,
       })
     );
@@ -216,19 +204,32 @@ function TickerScroll({ items, colors, isDark }: { items: string[]; colors: Retu
 
   if (!items.length) return null;
 
-  const tickerText = items.join("    ·    ");
-  const pillColor = isDark ? '#E03030' : '#DC2626';
+  const tickerText = items.join("     ·     ");
+  const alertColor = isDark ? '#E03030' : '#DC2626';
+  const hasRecollects = items.some(i => !i.includes("No pending"));
 
   return (
-    <View style={tickerStyles.container}>
-      <View style={[tickerStyles.pill, { backgroundColor: pillColor + '1A', borderColor: pillColor + '55' }]}>
-        <Text style={[tickerStyles.pillText, { color: pillColor, fontFamily: FONT_MONO }]}>RECOLLECT</Text>
+    <View style={[tickerStyles.container, {
+      backgroundColor: isDark ? '#1A0808' : '#FFF5F5',
+      borderTopColor: isDark ? '#3D1818' : '#FECACA',
+      borderBottomColor: isDark ? '#3D1818' : '#FECACA',
+    }]}>
+      <View style={tickerStyles.pillSection}>
+        <Animated.View style={[tickerStyles.alertDot, { backgroundColor: alertColor, opacity: hasRecollects ? pulseAnim : 0.3 }]} />
+        <Text style={[tickerStyles.pillText, { color: alertColor, fontFamily: FONT_MONO }]}>
+          {hasRecollects ? "RECOLLECT" : "CLEAR"}
+        </Text>
       </View>
+      <View style={tickerStyles.dividerLine} />
       <View style={tickerStyles.scrollArea}>
         <Animated.Text
           style={[
             tickerStyles.text,
-            { color: colors.statusPending, fontFamily: FONT_MONO, transform: [{ translateX: scrollX }] },
+            {
+              color: hasRecollects ? alertColor : colors.textMuted,
+              fontFamily: FONT_MONO,
+              transform: [{ translateX: scrollX }],
+            },
           ]}
           numberOfLines={1}
         >
@@ -329,7 +330,7 @@ export default function LiveScreen() {
     const loadingLine = FUNNY_LOADING_LINES[Math.floor(Math.random() * FUNNY_LOADING_LINES.length)];
     lines.push({ id: `boot_${ts}`, text: loadingLine, type: "cmd" });
     lines.push({ id: `sys_${ts}_0`, text: "EGO COLLECTION INTELLIGENCE SYSTEM", type: "header" });
-    lines.push({ id: `sys_${ts}_1`, text: "═".repeat(40), type: "divider" });
+    lines.push({ id: `sys_${ts}_1`, text: "─".repeat(42), type: "divider" });
     lines.push({ id: `sys_${ts}_2`, text: "", type: "empty" });
 
     lines.push({ id: `mx_${ts}_h`, text: "EGO-MX  /  LOS CABOS", type: "header" });
@@ -396,7 +397,7 @@ export default function LiveScreen() {
       lines.push({ id: `rec_${ts}_d`, text: "", type: "empty" });
     }
 
-    lines.push({ id: `sys2_${ts}`, text: "═".repeat(40), type: "divider" });
+    lines.push({ id: `sys2_${ts}`, text: "─".repeat(42), type: "divider" });
     lines.push({ id: `rd_${ts}`, text: `LAST REDASH PULL: ${lastRefresh}`, type: "label" });
 
     return lines;
@@ -432,31 +433,26 @@ export default function LiveScreen() {
     };
   }, [allLines, configured]);
 
+  const handleRefresh = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    statsQuery.refetch();
+    todayLogQuery.refetch();
+    recollectionsQuery.refetch();
+  }, [statsQuery, todayLogQuery, recollectionsQuery]);
+
   const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
-  const bgMain = isDark ? '#141414' : '#F8F6EE';
+  const bgMain = isDark ? '#0E0E0E' : '#FAFAF0';
 
   return (
     <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
-      <View style={styles.clockRow}>
-        <LiveClock />
-      </View>
-
-      <View style={[styles.header, {
-        backgroundColor: isDark ? '#1E1E1E' : '#FFFDF5',
-        shadowColor: isDark ? '#000' : '#1A1400',
-        borderColor: isDark ? '#333' : '#E0DCCF',
-      }]}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>SYSTEM</Text>
-          <Text style={[styles.headerSub, { color: colors.textMuted, fontFamily: FONT_MONO }]}>LIVE FEED</Text>
-        </View>
-
-        <View style={styles.headerRight}>
+      <View style={styles.titleRow}>
+        <Text style={[styles.appName, { color: colors.accent, fontFamily: FONT_MONO }]}>EGO</Text>
+        <View style={styles.titleRight}>
           <View style={[
             styles.livePill,
             {
               backgroundColor: isOnline ? livePillColor + '1A' : colors.cancel + '1A',
-              borderColor: isOnline ? livePillColor + '55' : colors.cancel + '55',
+              borderColor: isOnline ? livePillColor + '44' : colors.cancel + '44',
             }
           ]}>
             <View style={[styles.statusDot, {
@@ -475,29 +471,38 @@ export default function LiveScreen() {
         </View>
       </View>
 
+      <AnnouncementTicker
+        items={recollectItems.length > 0 ? recollectItems : ["No pending recollections"]}
+        colors={colors}
+        isDark={isDark}
+      />
+
       <ScrollView
         style={styles.terminalScroll}
         contentContainerStyle={styles.terminalContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.terminalWindow, {
-          backgroundColor: isDark ? '#0E0E0E' : '#FFFFF8',
-          borderColor: isDark ? '#2A2A2A' : '#DDD8C8',
+          backgroundColor: isDark ? '#0A0A0A' : '#FFFFF8',
+          borderColor: isDark ? '#1E1E1E' : '#E0DCCF',
         }]}>
           <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} />
         </View>
-      </ScrollView>
 
-      <View style={[styles.tickerBar, {
-        backgroundColor: isDark ? '#1A1A1A' : '#F0EDE2',
-        borderTopColor: isDark ? '#2A2A2A' : '#E0DCCF',
-      }]}>
-        <TickerScroll
-          items={recollectItems.length > 0 ? recollectItems : ["No pending recollections"]}
-          colors={colors}
-          isDark={isDark}
-        />
-      </View>
+        <TouchableOpacity
+          style={[styles.refreshBtn, {
+            backgroundColor: isDark ? '#1A1A1A' : '#F0EDE2',
+            borderColor: isDark ? '#2A2A2A' : '#E0DCCF',
+          }]}
+          onPress={handleRefresh}
+          activeOpacity={0.7}
+        >
+          <RefreshCw size={12} color={colors.textMuted} />
+          <Text style={[styles.refreshText, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+            REFRESH FEED
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -509,52 +514,54 @@ const cmdStyles = StyleSheet.create({
   headerBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
-    marginBottom: 10,
-    gap: 10,
+    marginBottom: 8,
   },
   dotRow: {
     flexDirection: "row",
     gap: 6,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
   },
   headerTitle: {
     fontSize: 10,
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
+    marginLeft: 10,
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  sessionDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  sessionText: {
+    fontSize: 8,
+    letterSpacing: 0.5,
   },
   lineWrap: {
     paddingVertical: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
   },
   line: {
-    fontSize: 11.5,
     lineHeight: 20,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   divider: {
     fontSize: 11,
     letterSpacing: 0.5,
-    opacity: 0.4,
-    paddingVertical: 3,
-  },
-});
-
-const clockStyles = StyleSheet.create({
-  clock: {
-    fontSize: 22,
-    letterSpacing: 2,
-    fontWeight: "900" as const,
-  },
-  ms: {
-    fontSize: 14,
-    letterSpacing: 0.5,
-    fontWeight: "400" as const,
+    opacity: 0.3,
+    paddingVertical: 2,
+    paddingHorizontal: 14,
   },
 });
 
@@ -562,32 +569,43 @@ const tickerStyles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    height: 36,
+    height: 38,
     overflow: "hidden",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginLeft: 10,
-    marginRight: 8,
+  pillSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  alertDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   pillText: {
     fontSize: 8,
     fontWeight: "800" as const,
-    letterSpacing: 1.4,
+    letterSpacing: 1.6,
+  },
+  dividerLine: {
+    width: 1,
+    height: 20,
+    backgroundColor: "rgba(128,128,128,0.2)",
   },
   scrollArea: {
     flex: 1,
     overflow: "hidden",
-    height: 36,
+    height: 38,
     justifyContent: "center",
+    marginLeft: 8,
   },
   text: {
-    fontSize: 11,
+    fontSize: 10.5,
     letterSpacing: 0.3,
-    width: 3000,
+    width: 4000,
   },
 });
 
@@ -595,39 +613,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  clockRow: {
-    alignItems: "center",
-    paddingTop: 4,
-    paddingBottom: 6,
-  },
-  header: {
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  headerLeft: {},
-  headerTitle: {
-    fontSize: 13,
+  appName: {
+    fontSize: 28,
     fontWeight: "900" as const,
-    letterSpacing: 2,
+    letterSpacing: 6,
   },
-  headerSub: {
-    fontSize: 9,
-    letterSpacing: 1.5,
-    marginTop: 1,
-    fontWeight: "600" as const,
-  },
-  headerRight: {
+  titleRight: {
     alignItems: "flex-end",
     gap: 3,
   },
@@ -661,19 +660,28 @@ const styles = StyleSheet.create({
   },
   terminalContent: {
     paddingHorizontal: 12,
-    paddingBottom: 100,
+    paddingTop: 10,
+    paddingBottom: 120,
   },
   terminalWindow: {
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingVertical: 6,
+    paddingVertical: 4,
     overflow: "hidden",
   },
-  tickerBar: {
-    borderTopWidth: 1,
-    position: "absolute",
-    bottom: 110,
-    left: 0,
-    right: 0,
+  refreshBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  refreshText: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    fontWeight: "700" as const,
   },
 });
