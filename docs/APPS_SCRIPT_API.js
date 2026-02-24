@@ -100,6 +100,12 @@ function doGet(e) {
     if (action === "getAdminDashboardData") {
       return jsonResponse_({ success: true, data: API_getAdminDashboardData_(ss) });
     }
+    if (action === "getCATaggedWeekly") {
+      return jsonResponse_({ success: true, data: API_getCATaggedWeekly_(ss) });
+    }
+    if (action === "getWeeklyLog") {
+      return jsonResponse_({ success: true, data: API_getWeeklyLog_(ss) });
+    }
 
     return jsonResponse_({ success: false, error: "Unknown action: " + action });
   } catch (err) {
@@ -801,6 +807,117 @@ function API_getFullLog_(ss, collector) {
     });
 
     if (entries.length >= 50) break;
+  }
+  return entries;
+}
+
+/* =========================================================================
+ * GET CA_TAGGED WEEKLY — location-tagged collection rows for this week
+ * Reads from CA_Tagged sheet: Date, Rig ID, Site, Collector, Task Name, Hours Uploaded, Minutes Uploaded
+ * SF rule: EGO-PROD-(2|3|4|5|6|9) → EGO-SF, everything else → EGO-MX
+ * ========================================================================= */
+
+function API_getCATaggedWeekly_(ss) {
+  var sh = ss.getSheetByName("CA_Tagged");
+  if (!sh) {
+    var sh2 = ss.getSheetByName("CA_cache");
+    if (!sh2) return [];
+    sh = sh2;
+  }
+
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+
+  var today = API_today_();
+  var weekStart = API_weekStart_(today);
+  var weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
+
+  var cols = Math.min(sh.getLastColumn(), 8);
+  var data = sh.getRange(2, 1, last - 1, cols).getValues();
+  var out = [];
+
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var rawDate = r[0];
+    if (!rawDate) continue;
+
+    var dateStr = "";
+    if (rawDate instanceof Date) {
+      dateStr = Utilities.formatDate(rawDate, API_CFG.tz, "yyyy-MM-dd");
+    } else {
+      dateStr = String(rawDate || "").trim().slice(0, 10);
+    }
+    if (!dateStr || dateStr < weekStartStr) continue;
+
+    var rigId = String(r[1] || "").trim().toUpperCase();
+    var siteRaw = String(r[2] || "").trim().toUpperCase();
+    var collector = String(r[3] || "").trim();
+    var taskName = API_cleanTaskName_(r[4] || "");
+    var hoursUp = API_toNum_(r[5], 0);
+    var minsUp = API_toNum_(r[6], 0);
+    var totalHours = API_round2_(hoursUp + minsUp / 60);
+
+    if (!collector) continue;
+
+    var isSF = /^EGO-PROD-(2|3|4|5|6|9)$/i.test(rigId);
+    var site = isSF ? "SF" : "MX";
+    if (siteRaw === "EGO-SF") site = "SF";
+    else if (siteRaw === "EGO-MX") site = "MX";
+
+    out.push({
+      date: dateStr,
+      rigId: rigId,
+      site: site,
+      collector: collector,
+      taskName: taskName,
+      hours: totalHours
+    });
+  }
+  return out;
+}
+
+/* =========================================================================
+ * GET WEEKLY LOG — full task assignment log rows for this week (no 50-row cap)
+ * ========================================================================= */
+
+function API_getWeeklyLog_(ss) {
+  var log = ss.getSheetByName(API_CFG.sheets.log);
+  if (!log) return [];
+  var last = log.getLastRow();
+  if (last < 2) return [];
+
+  var today = API_today_();
+  var weekStart = API_weekStart_(today);
+  var weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
+
+  var map = API_getHeaderMap_(log);
+  var n = Math.min(Math.max(last - 1, 0), API_CFG.perf.maxLogRows);
+  var data = n ? log.getRange(2, 1, n, log.getLastColumn()).getValues() : [];
+
+  var entries = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var rCollector = String(r[map["Collector"] - 1] || "").trim();
+    if (!rCollector) continue;
+
+    var dt = r[map["Assigned Date"] - 1];
+    var dateStr = "";
+    if (dt instanceof Date) {
+      dateStr = Utilities.formatDate(dt, API_CFG.tz, "yyyy-MM-dd");
+    }
+    if (!dateStr || dateStr < weekStartStr) continue;
+
+    var taskName = API_cleanTaskName_(r[map["Task Name"] - 1]);
+    if (!taskName) continue;
+
+    entries.push({
+      collector: rCollector,
+      taskName: taskName,
+      status: String(r[map["Assignment Status"] - 1] || "").trim() || "In Progress",
+      loggedHours: API_round2_(API_toNum_(r[map["Logged Hours"] - 1], 0)),
+      plannedHours: API_round2_(API_toNum_(r[map["Planned Hours"] - 1], 0)),
+      assignedDate: dateStr
+    });
   }
   return entries;
 }

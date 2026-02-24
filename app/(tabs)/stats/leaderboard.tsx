@@ -308,6 +308,8 @@ function RankRow({
                   ? "#3B82F6"
                   : entry.location === "MX"
                   ? "#EF4444"
+                  : entry.location === "BOTH"
+                  ? "#A855F7"
                   : colors.textMuted + "40",
                 width: `${barPct}%` as any,
               },

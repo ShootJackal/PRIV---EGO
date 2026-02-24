@@ -104,6 +104,24 @@ export interface FullLogEntry {
   assignedDate: string;
 }
 
+export interface CATaggedEntry {
+  date: string;
+  rigId: string;
+  site: "SF" | "MX";
+  collector: string;
+  taskName: string;
+  hours: number;
+}
+
+export interface WeeklyLogEntry {
+  collector: string;
+  taskName: string;
+  status: string;
+  loggedHours: number;
+  plannedHours: number;
+  assignedDate: string;
+}
+
 export interface AdminDashboardData {
   recollections: string[];
   totalTasks: number;
@@ -118,5 +136,6 @@ export interface LeaderboardEntry {
   weeklyCompleted: number;
   weeklyAssigned: number;
   rank: number;
-  location: "SF" | "MX" | "OTHER";
+  location: "SF" | "MX" | "BOTH" | "OTHER";
+  locations: ("SF" | "MX")[];
 }

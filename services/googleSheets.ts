@@ -1,4 +1,4 @@
-import { Collector, Task, LogEntry, TaskMeta, SubmitPayload, SubmitResponse, CollectorStats, TaskActualRow, FullLogEntry, AdminDashboardData } from "../types";
+import { Collector, Task, LogEntry, TaskMeta, SubmitPayload, SubmitResponse, CollectorStats, TaskActualRow, FullLogEntry, AdminDashboardData, CATaggedEntry, WeeklyLogEntry } from "../types";
 
 function getScriptUrl(): string {
   return process.env.EXPO_PUBLIC_GOOGLE_SCRIPT_URL ?? "";
@@ -136,6 +136,26 @@ export async function fetchTaskActualsData(): Promise<TaskActualRow[]> {
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
   console.log("[API] fetchAdminDashboardData");
   return apiGet<AdminDashboardData>("getAdminDashboardData");
+}
+
+export async function fetchCATaggedWeekly(): Promise<CATaggedEntry[]> {
+  console.log("[API] fetchCATaggedWeekly");
+  try {
+    return await apiGet<CATaggedEntry[]>("getCATaggedWeekly");
+  } catch (e) {
+    console.log("[API] fetchCATaggedWeekly failed (sheet may not exist):", e);
+    return [];
+  }
+}
+
+export async function fetchWeeklyLog(): Promise<WeeklyLogEntry[]> {
+  console.log("[API] fetchWeeklyLog");
+  try {
+    return await apiGet<WeeklyLogEntry[]>("getWeeklyLog");
+  } catch (e) {
+    console.log("[API] fetchWeeklyLog failed:", e);
+    return [];
+  }
 }
 
 export function isApiConfigured(): boolean {
