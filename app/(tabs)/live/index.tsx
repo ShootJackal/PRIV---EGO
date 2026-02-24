@@ -213,11 +213,11 @@ function SkyDayTracker() {
   return (
     <View style={skyStyles.container}>
       <View style={skyStyles.labelRow}>
-        <Sun size={13} color={isDark ? '#FBBF24' : '#D97706'} />
+        <Sun size={10} color={isDark ? '#FBBF24' : '#D97706'} />
         <Text style={[skyStyles.timeLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
           {sky.phase.toUpperCase()}
         </Text>
-        <Moon size={13} color={isDark ? '#818CF8' : '#6366F1'} />
+        <Moon size={10} color={isDark ? '#818CF8' : '#6366F1'} />
       </View>
       <View style={[skyStyles.track, { backgroundColor: trackBg }]}>
         <View style={[skyStyles.gradientFill, { backgroundColor: sky.left, width: `${Math.max(progress * 100, 2)}%` as any }]}>
@@ -225,9 +225,9 @@ function SkyDayTracker() {
         </View>
         <Animated.View style={[skyStyles.slider, { left: sliderLeft, backgroundColor: sky.accent, shadowColor: sky.accent }]}>
           {isDay ? (
-            <Sun size={12} color="#FFFFFF" />
+            <Sun size={9} color="#FFFFFF" />
           ) : (
-            <Moon size={12} color="#FFFFFF" />
+            <Moon size={9} color="#FFFFFF" />
           )}
         </Animated.View>
       </View>
@@ -238,29 +238,29 @@ function SkyDayTracker() {
 const skyStyles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 6,
+    paddingVertical: 4,
+    gap: 4,
   },
   labelRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
   timeLabel: {
-    fontSize: 9,
-    fontWeight: '700' as const,
-    letterSpacing: 2,
+    fontSize: 8,
+    fontWeight: '600' as const,
+    letterSpacing: 1.5,
   },
   track: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
     overflow: 'visible' as const,
     position: 'relative' as const,
   },
   gradientFill: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
     overflow: 'hidden' as const,
   },
   gradientOverlay: {
@@ -269,20 +269,20 @@ const skyStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: '50%' as any,
-    borderRadius: 3,
+    borderRadius: 2,
   },
   slider: {
     position: 'absolute' as const,
-    top: -9,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    top: -7,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
 });
 

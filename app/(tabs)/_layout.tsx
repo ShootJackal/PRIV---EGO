@@ -380,11 +380,11 @@ const barStyles = StyleSheet.create({
   },
   alertDot: {
     position: "absolute",
-    top: 2,
-    right: 4,
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    top: 3,
+    right: 5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: "#FF3B30",
   },
   label: {
