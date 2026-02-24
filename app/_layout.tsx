@@ -7,13 +7,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, Text, StyleSheet, Animated, Platform, Dimensions, TouchableOpacity } from "react-native";
 import { ThemeProvider, useTheme } from "../providers/ThemeProvider";
 import { CollectionProvider } from "../providers/CollectionProvider";
-import {
-  useFonts,
-  Lexend_400Regular,
-  Lexend_500Medium,
-  Lexend_600SemiBold,
-  Lexend_700Bold,
-} from "@expo-google-fonts/lexend";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -395,20 +388,9 @@ function AppWithBoot() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    Lexend_400Regular,
-    Lexend_500Medium,
-    Lexend_600SemiBold,
-    Lexend_700Bold,
-  });
-
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
-  if (!fontsLoaded) return null;
+    SplashScreen.hideAsync();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

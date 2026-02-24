@@ -73,7 +73,7 @@ function SectionHeader({ label, icon }: { label: string; icon?: React.ReactNode 
   return (
     <View style={sectionStyles.row}>
       {icon}
-      <Text style={[sectionStyles.label, { color: colors.textMuted, fontFamily: "Lexend_700Bold" }]}>
+      <Text style={[sectionStyles.label, { color: colors.textMuted, fontWeight: "700" as const }]}>
         {label}
       </Text>
     </View>
@@ -266,7 +266,7 @@ function CompactTimer() {
                     timerStyles.presetText,
                     {
                       color: p.mins === selectedMinutes ? p.color : colors.textMuted,
-                      fontFamily: p.mins === selectedMinutes ? "Lexend_700Bold" : "Lexend_400Regular",
+                      fontWeight: p.mins === selectedMinutes ? "700" as const : "400" as const,
                     },
                   ]}
                 >
@@ -442,7 +442,7 @@ export default function ToolsScreen() {
               <User size={17} color={colors.accent} />
             </View>
             <View style={styles.settingContent}>
-              <Text style={[styles.settingLabel, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
+              <Text style={[styles.settingLabel, { color: colors.textMuted, fontWeight: "600" as const }]}>
                 Who are you?
               </Text>
               <SelectPicker
@@ -464,7 +464,7 @@ export default function ToolsScreen() {
                   <Cpu size={17} color={colors.complete} />
                 </View>
                 <View style={styles.settingContent}>
-                  <Text style={[styles.settingLabel, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
+                  <Text style={[styles.settingLabel, { color: colors.textMuted, fontWeight: "600" as const }]}>
                     Your Rig
                   </Text>
                   {rigOptions.length > 0 ? (
@@ -477,7 +477,7 @@ export default function ToolsScreen() {
                       testID="rig-picker"
                     />
                   ) : (
-                    <Text style={[styles.noRigText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                    <Text style={[styles.noRigText, { color: colors.textMuted, fontWeight: "400" as const }]}>
                       No rigs assigned to this collector
                     </Text>
                   )}
@@ -495,7 +495,7 @@ export default function ToolsScreen() {
             ]}
           >
             <Check size={13} color={colors.accent} />
-            <Text style={[styles.profileBadgeText, { color: colors.accent, fontFamily: "Lexend_600SemiBold" }]}>
+            <Text style={[styles.profileBadgeText, { color: colors.accent, fontWeight: "600" as const }]}>
               {selectedCollectorName} · {selectedRig}
             </Text>
           </View>
@@ -523,10 +523,10 @@ export default function ToolsScreen() {
             {isDark ? <Sun size={17} color="#F5A623" /> : <Moon size={17} color={colors.textSecondary} />}
           </View>
           <View style={styles.themeContent}>
-            <Text style={[styles.themeLabel, { color: colors.textPrimary, fontFamily: "Lexend_500Medium" }]}>
+            <Text style={[styles.themeLabel, { color: colors.textPrimary, fontWeight: "500" as const }]}>
               {isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             </Text>
-            <Text style={[styles.themeSub, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+            <Text style={[styles.themeSub, { color: colors.textMuted, fontWeight: "400" as const }]}>
               {isDark ? "Easier on the eyes outdoors" : "Better for low-light collection"}
             </Text>
           </View>
@@ -587,10 +587,10 @@ export default function ToolsScreen() {
                     <IconComp size={16} color={colors.sheets} />
                   </View>
                   <View style={styles.sheetInfo}>
-                    <Text style={[styles.sheetRowText, { color: colors.textPrimary, fontFamily: "Lexend_500Medium" }]}>
+                    <Text style={[styles.sheetRowText, { color: colors.textPrimary, fontWeight: "500" as const }]}>
                       {page.label}
                     </Text>
-                    <Text style={[styles.sheetDesc, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                    <Text style={[styles.sheetDesc, { color: colors.textMuted, fontWeight: "400" as const }]}>
                       {page.desc}
                     </Text>
                   </View>
@@ -667,10 +667,10 @@ function QuickCard({
         testID={testID}
       >
         <View style={[styles.quickIcon, { backgroundColor: iconBg }]}>{icon}</View>
-        <Text style={[styles.quickTitle, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
+        <Text style={[styles.quickTitle, { color: colors.textPrimary, fontWeight: "700" as const }]}>
           {title}
         </Text>
-        <Text style={[styles.quickSub, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+        <Text style={[styles.quickSub, { color: colors.textMuted, fontWeight: "400" as const }]}>
           {subtitle}
         </Text>
       </TouchableOpacity>

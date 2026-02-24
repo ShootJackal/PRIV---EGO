@@ -154,7 +154,7 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
                   barStyles.label,
                   {
                     color: iconColor,
-                    fontFamily: isFocused ? "Lexend_700Bold" : "Lexend_400Regular",
+                    fontWeight: isFocused ? "700" as const : "400" as const,
                     fontSize: isLive ? 8 : 9,
                     letterSpacing: isLive ? 1.5 : 0.3,
                   },
@@ -191,7 +191,7 @@ export default function TabLayout() {
           headerStyle: { backgroundColor: colors.bg },
           headerTintColor: colors.textPrimary,
           headerTitleStyle: {
-            fontFamily: "Lexend_700Bold",
+            fontWeight: "700" as const,
             fontSize: 17,
           },
           headerShadowVisible: false,

@@ -292,10 +292,10 @@ function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => voi
                 </Text>
               </View>
               <View style={guideStyles.stepContent}>
-                <Text style={[guideStyles.stepTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+                <Text style={[guideStyles.stepTitle, { color: colors.textPrimary, fontWeight: "600" as const }]}>
                   {step.title}
                 </Text>
-                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary, fontFamily: "Lexend_400Regular" }]}>
+                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary, fontWeight: "400" as const }]}>
                   {step.desc}
                 </Text>
               </View>

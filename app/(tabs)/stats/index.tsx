@@ -126,14 +126,14 @@ function HeroStat({
       <View style={[styles.heroIconWrap, { backgroundColor: color + "16" }]}>
         {icon}
       </View>
-      <Text style={[styles.heroValue, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
+      <Text style={[styles.heroValue, { color: colors.textPrimary, fontWeight: "700" as const }]}>
         {value}
       </Text>
-      <Text style={[styles.heroLabel, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>
+      <Text style={[styles.heroLabel, { color: colors.textMuted, fontWeight: "500" as const }]}>
         {label}
       </Text>
       {sub ? (
-        <Text style={[styles.heroSub, { color: color, fontFamily: "Lexend_400Regular" }]}>{sub}</Text>
+        <Text style={[styles.heroSub, { color: color, fontWeight: "400" as const }]}>{sub}</Text>
       ) : null}
     </Animated.View>
   );
@@ -143,10 +143,10 @@ function SmallStat({ label, value, color }: { label: string; value: string; colo
   const { colors } = useTheme();
   return (
     <View style={styles.smallStat}>
-      <Text style={[styles.smallValue, { color: color ?? colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+      <Text style={[styles.smallValue, { color: color ?? colors.textPrimary, fontWeight: "600" as const }]}>
         {value}
       </Text>
-      <Text style={[styles.smallLabel, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+      <Text style={[styles.smallLabel, { color: colors.textMuted, fontWeight: "400" as const }]}>
         {label}
       </Text>
     </View>
@@ -203,10 +203,10 @@ export default function StatsScreen() {
     return (
       <View style={[styles.empty, { backgroundColor: colors.bg }]}>
         <Inbox size={44} color={colors.border} />
-        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+        <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontWeight: "600" as const }]}>
           No Collector Selected
         </Text>
-        <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: "Lexend_400Regular" }]}>
+        <Text style={[styles.emptyText, { color: colors.textSecondary, fontWeight: "400" as const }]}>
           Set your profile in the Tools tab to view stats
         </Text>
       </View>
@@ -229,18 +229,18 @@ export default function StatsScreen() {
     >
       <View style={styles.pageHeader}>
         <View>
-          <Text style={[styles.pageTitle, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
+          <Text style={[styles.pageTitle, { color: colors.textPrimary, fontWeight: "700" as const }]}>
             {normalizeCollectorName(selectedCollector.name)}
           </Text>
           {selectedRig !== "" && (
-            <Text style={[styles.pageRig, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+            <Text style={[styles.pageRig, { color: colors.textMuted, fontWeight: "400" as const }]}>
               {selectedRig}
             </Text>
           )}
         </View>
         <View style={[styles.perfBadge, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
           <Zap size={11} color={colors.accent} />
-          <Text style={[styles.perfBadgeText, { color: colors.accent, fontFamily: "Lexend_600SemiBold" }]}>
+          <Text style={[styles.perfBadgeText, { color: colors.accent, fontWeight: "600" as const }]}>
             Performance
           </Text>
         </View>
@@ -248,7 +248,7 @@ export default function StatsScreen() {
 
       <View style={[styles.sectionHeader]}>
         <Calendar size={13} color={colors.accent} />
-        <Text style={[styles.sectionLabel, { color: colors.accent, fontFamily: "Lexend_700Bold" }]}>
+        <Text style={[styles.sectionLabel, { color: colors.accent, fontWeight: "700" as const }]}>
           TODAY
         </Text>
       </View>
@@ -292,10 +292,10 @@ export default function StatsScreen() {
           ]}
         >
           <View style={styles.progressHeader}>
-            <Text style={[styles.progressTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+            <Text style={[styles.progressTitle, { color: colors.textPrimary, fontWeight: "600" as const }]}>
               Daily Progress
             </Text>
-            <Text style={[styles.progressPct, { color: colors.accent, fontFamily: "Lexend_700Bold" }]}>
+            <Text style={[styles.progressPct, { color: colors.accent, fontWeight: "700" as const }]}>
               {localStats.totalPlanned > 0
                 ? `${Math.round((localStats.totalLogged / localStats.totalPlanned) * 100)}%`
                 : "0%"}
@@ -307,7 +307,7 @@ export default function StatsScreen() {
             color={colors.accent}
             delay={200}
           />
-          <Text style={[styles.progressSub, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+          <Text style={[styles.progressSub, { color: colors.textMuted, fontWeight: "400" as const }]}>
             {localStats.totalLogged.toFixed(1)}h of {localStats.totalPlanned.toFixed(1)}h planned
           </Text>
         </View>
@@ -317,7 +317,7 @@ export default function StatsScreen() {
         <>
           <View style={[styles.sectionHeader, { marginTop: 24 }]}>
             <Calendar size={13} color={colors.complete} />
-            <Text style={[styles.sectionLabel, { color: colors.complete, fontFamily: "Lexend_700Bold" }]}>
+            <Text style={[styles.sectionLabel, { color: colors.complete, fontWeight: "700" as const }]}>
               THIS WEEK
             </Text>
           </View>
@@ -354,7 +354,7 @@ export default function StatsScreen() {
       {statsQuery.isLoading && (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="small" color={colors.accent} />
-          <Text style={[styles.loadingText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+          <Text style={[styles.loadingText, { color: colors.textMuted, fontWeight: "400" as const }]}>
             Loading stats...
           </Text>
         </View>
@@ -364,7 +364,7 @@ export default function StatsScreen() {
         <>
           <View style={[styles.sectionHeader, { marginTop: 28 }]}>
             <TrendingUp size={12} color={colors.textMuted} />
-            <Text style={[styles.sectionLabelMuted, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
+            <Text style={[styles.sectionLabelMuted, { color: colors.textMuted, fontWeight: "600" as const }]}>
               ALL TIME
             </Text>
           </View>
@@ -377,37 +377,37 @@ export default function StatsScreen() {
           >
             <View style={styles.allTimeGrid}>
               <View style={styles.allTimeItem}>
-                <Text style={[styles.allTimeVal, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+                <Text style={[styles.allTimeVal, { color: colors.textPrimary, fontWeight: "600" as const }]}>
                   {stats.totalAssigned}
                 </Text>
-                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontWeight: "400" as const }]}>
                   Tasks
                 </Text>
               </View>
               <View style={[styles.allTimeSep, { backgroundColor: colors.border }]} />
               <View style={styles.allTimeItem}>
-                <Text style={[styles.allTimeVal, { color: colors.complete, fontFamily: "Lexend_600SemiBold" }]}>
+                <Text style={[styles.allTimeVal, { color: colors.complete, fontWeight: "600" as const }]}>
                   {stats.totalCompleted}
                 </Text>
-                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontWeight: "400" as const }]}>
                   Done
                 </Text>
               </View>
               <View style={[styles.allTimeSep, { backgroundColor: colors.border }]} />
               <View style={styles.allTimeItem}>
-                <Text style={[styles.allTimeVal, { color: colors.accent, fontFamily: "Lexend_600SemiBold" }]}>
+                <Text style={[styles.allTimeVal, { color: colors.accent, fontWeight: "600" as const }]}>
                   {stats.totalLoggedHours.toFixed(0)}h
                 </Text>
-                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontWeight: "400" as const }]}>
                   Hours
                 </Text>
               </View>
               <View style={[styles.allTimeSep, { backgroundColor: colors.border }]} />
               <View style={styles.allTimeItem}>
-                <Text style={[styles.allTimeVal, { color: colors.complete, fontFamily: "Lexend_600SemiBold" }]}>
+                <Text style={[styles.allTimeVal, { color: colors.complete, fontWeight: "600" as const }]}>
                   {stats.completionRate.toFixed(0)}%
                 </Text>
-                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                <Text style={[styles.allTimeLbl, { color: colors.textMuted, fontWeight: "400" as const }]}>
                   Rate
                 </Text>
               </View>
@@ -419,7 +419,7 @@ export default function StatsScreen() {
               color={colors.complete}
               delay={400}
             />
-            <Text style={[styles.allTimeSub, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+            <Text style={[styles.allTimeSub, { color: colors.textMuted, fontWeight: "400" as const }]}>
               {stats.totalCompleted} of {stats.totalAssigned} tasks completed
             </Text>
           </View>
@@ -431,7 +431,7 @@ export default function StatsScreen() {
                 { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
               ]}
             >
-              <Text style={[styles.topTasksTitle, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
+              <Text style={[styles.topTasksTitle, { color: colors.textMuted, fontWeight: "600" as const }]}>
                 Recent Tasks
               </Text>
               {stats.topTasks.slice(0, 8).map((task, idx) => {
@@ -452,12 +452,12 @@ export default function StatsScreen() {
                   >
                     <View style={[styles.topTaskDot, { backgroundColor: dotColor }]} />
                     <Text
-                      style={[styles.topTaskName, { color: colors.textSecondary, fontFamily: "Lexend_400Regular" }]}
+                      style={[styles.topTaskName, { color: colors.textSecondary, fontWeight: "400" as const }]}
                       numberOfLines={1}
                     >
                       {task.name}
                     </Text>
-                    <Text style={[styles.topTaskHours, { color: dotColor, fontFamily: "Lexend_600SemiBold" }]}>
+                    <Text style={[styles.topTaskHours, { color: dotColor, fontWeight: "600" as const }]}>
                       {task.hours}h
                     </Text>
                   </View>
@@ -470,7 +470,7 @@ export default function StatsScreen() {
 
       {!stats && !statsQuery.isLoading && configured && (
         <View style={[styles.infoCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <Text style={[styles.infoText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+          <Text style={[styles.infoText, { color: colors.textMuted, fontWeight: "400" as const }]}>
             All-time stats appear once the Apps Script{"\n"}getCollectorStats endpoint is configured.
           </Text>
         </View>
