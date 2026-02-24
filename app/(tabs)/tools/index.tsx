@@ -28,7 +28,11 @@ import {
   ClipboardList,
   BarChart3,
   LayoutDashboard,
+  Megaphone,
+  Plus,
+  X,
 } from "lucide-react-native";
+import { TextInput } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
@@ -312,7 +316,11 @@ export default function ToolsScreen() {
     selectedRig,
     selectCollector,
     setSelectedRig,
+    announcements,
+    setAnnouncements,
   } = useCollection();
+
+  const [newAnnouncement, setNewAnnouncement] = useState("");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
@@ -395,6 +403,23 @@ export default function ToolsScreen() {
       setSelectedRig(rig);
     },
     [setSelectedRig]
+  );
+
+  const handleAddAnnouncement = useCallback(() => {
+    const text = newAnnouncement.trim();
+    if (!text) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAnnouncements([...announcements, text]);
+    setNewAnnouncement("");
+  }, [newAnnouncement, announcements, setAnnouncements]);
+
+  const handleRemoveAnnouncement = useCallback(
+    (index: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const updated = announcements.filter((_, i) => i !== index);
+      setAnnouncements(updated);
+    },
+    [announcements, setAnnouncements]
   );
 
   const cardStyle = [
@@ -570,6 +595,88 @@ export default function ToolsScreen() {
               </View>
             );
           })}
+        </View>
+
+        <View style={styles.sectionGap} />
+        <SectionHeader label="Announcements" />
+
+        <View style={cardStyle}>
+          <View style={styles.announcementInputRow}>
+            <View style={[styles.settingIconWrap, { backgroundColor: isDark ? '#2A1B4E' : '#FDF3E0' }]}>
+              <Megaphone size={17} color={isDark ? colors.accent : colors.statusPending} />
+            </View>
+            <TextInput
+              style={[
+                styles.announcementInput,
+                {
+                  backgroundColor: colors.bgInput,
+                  borderColor: colors.border,
+                  color: colors.textPrimary,
+                  fontFamily: 'Lexend_400Regular',
+                },
+              ]}
+              value={newAnnouncement}
+              onChangeText={setNewAnnouncement}
+              placeholder="Type announcement..."
+              placeholderTextColor={colors.textMuted}
+              testID="announcement-input"
+            />
+            <TouchableOpacity
+              style={[
+                styles.announcementAddBtn,
+                {
+                  backgroundColor: newAnnouncement.trim() ? colors.accent : colors.bgInput,
+                },
+              ]}
+              onPress={handleAddAnnouncement}
+              activeOpacity={0.75}
+              disabled={!newAnnouncement.trim()}
+            >
+              <Plus size={16} color={newAnnouncement.trim() ? colors.white : colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {announcements.length > 0 && (
+            <View style={[styles.announcementList, { borderTopColor: colors.border }]}>
+              {announcements.map((item, idx) => (
+                <View
+                  key={`ann_${idx}`}
+                  style={[
+                    styles.announcementItem,
+                    idx > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.announcementText,
+                      { color: colors.textPrimary, fontFamily: 'Lexend_400Regular' },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {item}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveAnnouncement(idx)}
+                    activeOpacity={0.6}
+                    style={[styles.announcementRemove, { backgroundColor: colors.cancelBg }]}
+                  >
+                    <X size={12} color={colors.cancel} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {announcements.length === 0 && (
+            <Text
+              style={[
+                styles.announcementEmpty,
+                { color: colors.textMuted, fontFamily: 'Lexend_400Regular' },
+              ]}
+            >
+              No active announcements. Add one to show on the LIVE ticker.
+            </Text>
+          )}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -862,4 +969,54 @@ const styles = StyleSheet.create({
   },
   sheetRowText: { flex: 1, fontSize: 15 },
   bottomSpacer: { height: 20 },
+  announcementInputRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  announcementInput: {
+    flex: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    borderWidth: 1,
+  },
+  announcementAddBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  announcementList: {
+    borderTopWidth: 1,
+  },
+  announcementItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  announcementText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  announcementRemove: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  announcementEmpty: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    lineHeight: 17,
+  },
 });

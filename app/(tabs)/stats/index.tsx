@@ -7,9 +7,12 @@ import {
   RefreshControl,
   Animated,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Clock, CheckCircle, Target, Inbox, Calendar, Zap } from "lucide-react-native";
+import { TrendingUp, Clock, CheckCircle, Target, Inbox, Calendar, Zap, Trophy, ChevronRight } from "lucide-react-native";
+import { router } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { fetchCollectorStats } from "../../../services/googleSheets";
@@ -154,7 +157,7 @@ function SmallStat({ label, value, color }: { label: string; value: string; colo
 }
 
 export default function StatsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { selectedCollector, selectedCollectorName, selectedRig, todayLog, configured } =
     useCollection();
   const [refreshing, setRefreshing] = useState(false);
@@ -227,6 +230,36 @@ export default function StatsScreen() {
         />
       }
     >
+      <TouchableOpacity
+        style={[
+          styles.leaderboardCard,
+          {
+            backgroundColor: isDark ? colors.gold + '12' : colors.gold + '0C',
+            borderColor: colors.gold + '35',
+            shadowColor: colors.shadow,
+          },
+        ]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push('/stats/leaderboard' as any);
+        }}
+        activeOpacity={0.75}
+        testID="leaderboard-btn"
+      >
+        <View style={[styles.leaderboardIcon, { backgroundColor: colors.gold + '20' }]}>
+          <Trophy size={20} color={colors.gold} />
+        </View>
+        <View style={styles.leaderboardInfo}>
+          <Text style={[styles.leaderboardTitle, { color: colors.textPrimary, fontFamily: 'Lexend_700Bold' }]}>
+            Weekly Leaderboard
+          </Text>
+          <Text style={[styles.leaderboardSub, { color: colors.textMuted, fontFamily: 'Lexend_400Regular' }]}>
+            See how you rank against the team
+          </Text>
+        </View>
+        <ChevronRight size={18} color={colors.gold} />
+      </TouchableOpacity>
+
       <View style={styles.pageHeader}>
         <View>
           <Text style={[styles.pageTitle, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
@@ -633,4 +666,27 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17 },
   emptyText: { fontSize: 14, textAlign: "center" as const },
   spacer: { height: 20 },
+  leaderboardCard: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 20,
+    gap: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  leaderboardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  leaderboardInfo: { flex: 1 },
+  leaderboardTitle: { fontSize: 14 },
+  leaderboardSub: { fontSize: 11, marginTop: 1 },
 });

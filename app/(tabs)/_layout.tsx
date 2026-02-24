@@ -1,5 +1,5 @@
 import { Tabs, router } from "expo-router";
-import { Send, ListChecks, Wrench, BarChart3, Radio } from "lucide-react-native";
+import { Send, Wrench, BarChart3, Radio } from "lucide-react-native";
 import React, { useRef, useCallback } from "react";
 import {
   Platform,
@@ -17,17 +17,13 @@ import { useTheme } from "../../providers/ThemeProvider";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const TAB_ORDER = ["index", "tasks", "live", "stats", "tools"] as const;
+const TAB_ORDER = ["index", "live", "stats", "tools"] as const;
 type TabName = (typeof TAB_ORDER)[number];
 
 const TAB_CONFIG: Record<TabName, { title: string; icon: (color: string, size: number) => React.ReactNode }> = {
   index: {
     title: "Collect",
     icon: (color, size) => <Send size={size} color={color} />,
-  },
-  tasks: {
-    title: "Tasks",
-    icon: (color, size) => <ListChecks size={size} color={color} />,
   },
   live: {
     title: "LIVE",
@@ -83,24 +79,34 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
   const BOTTOM_PAD = insets.bottom > 0 ? insets.bottom : 12;
 
   const gradientColors = isDark
-    ? ['transparent', 'rgba(20,20,20,0.85)', 'rgba(20,20,20,0.98)'] as const
-    : ['transparent', 'rgba(248,246,238,0.85)', 'rgba(248,246,238,0.98)'] as const;
+    ? ['transparent', 'rgba(15,15,15,0.92)', 'rgba(15,15,15,0.99)'] as const
+    : ['transparent', 'rgba(250,246,237,0.92)', 'rgba(250,246,237,0.99)'] as const;
 
   return (
     <View style={[barStyles.outerWrap, { paddingBottom: BOTTOM_PAD }]}>
       <LinearGradient
         colors={gradientColors}
         style={barStyles.gradient}
-        locations={[0, 0.45, 1]}
+        locations={[0, 0.4, 1]}
         pointerEvents="none"
       />
       <View
         style={[
           barStyles.island,
           {
-            backgroundColor: isDark ? '#2A2A2A' : '#FFFEF8',
-            shadowColor: isDark ? '#000' : '#1A1400',
-            borderColor: isDark ? '#3A3A3A' : '#E0DCCF',
+            backgroundColor: isDark ? '#1A1A1A' : '#FFFFF5',
+            shadowColor: isDark ? colors.accent : '#1A1400',
+            borderColor: isDark ? '#333333' : '#D0C9BA',
+          },
+          isDark ? {
+            shadowColor: colors.accent,
+            shadowOpacity: 0.2,
+            shadowRadius: 24,
+            elevation: 28,
+          } : {
+            shadowOpacity: 0.18,
+            shadowRadius: 20,
+            elevation: 24,
           },
         ]}
       >
@@ -186,32 +192,24 @@ function SwipeWrapper({
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => {
-        const isEdgeSwipe =
-          (g.moveX < 28 || g.moveX > SCREEN_WIDTH - 28) &&
-          Math.abs(g.dx) > 16 &&
-          Math.abs(g.dy) < 60;
-        return isEdgeSwipe;
+        const isSwipe =
+          Math.abs(g.dx) > 20 &&
+          Math.abs(g.dy) < 40 &&
+          Math.abs(g.dx) > Math.abs(g.dy) * 1.8;
+        return isSwipe;
       },
       onPanResponderRelease: (_, g) => {
-        if (g.dx < -30 && tabIndex < TAB_ORDER.length - 1) {
+        const routeMap: Record<TabName, string> = {
+          index: "/",
+          live: "/live",
+          stats: "/stats",
+          tools: "/tools",
+        };
+        if (g.dx < -50 && tabIndex < TAB_ORDER.length - 1) {
           const next = TAB_ORDER[tabIndex + 1];
-          const routeMap: Record<TabName, string> = {
-            index: "/",
-            tasks: "/tasks",
-            live: "/live",
-            stats: "/stats",
-            tools: "/tools",
-          };
           router.navigate(routeMap[next] as any);
-        } else if (g.dx > 30 && tabIndex > 0) {
+        } else if (g.dx > 50 && tabIndex > 0) {
           const prev = TAB_ORDER[tabIndex - 1];
-          const routeMap: Record<TabName, string> = {
-            index: "/",
-            tasks: "/tasks",
-            live: "/live",
-            stats: "/stats",
-            tools: "/tools",
-          };
           router.navigate(routeMap[prev] as any);
         }
       },
@@ -252,7 +250,6 @@ export default function TabLayout() {
           headerShadowVisible: false,
         }}
       />
-      <Tabs.Screen name="tasks" options={{ title: "Tasks" }} />
       <Tabs.Screen name="live" options={{ title: "LIVE" }} />
       <Tabs.Screen name="stats" options={{ title: "Stats" }} />
       <Tabs.Screen name="tools" options={{ title: "Tools" }} />
@@ -274,17 +271,17 @@ const barStyles = StyleSheet.create({
     bottom: -10,
     left: 0,
     right: 0,
-    height: 100,
+    height: 110,
   },
   island: {
     flexDirection: "row",
     borderRadius: 28,
     borderWidth: 1,
     paddingVertical: 6,
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.14,
     shadowRadius: 24,
-    elevation: 20,
+    elevation: 24,
     position: "relative",
     overflow: "hidden",
     width: "100%",

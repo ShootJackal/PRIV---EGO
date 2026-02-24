@@ -18,6 +18,10 @@ export default function StatsLayout() {
         name="index"
         options={{ title: "Statistics" }}
       />
+      <Stack.Screen
+        name="leaderboard"
+        options={{ title: "Leaderboard" }}
+      />
     </Stack>
   );
 }

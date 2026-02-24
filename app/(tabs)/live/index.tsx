@@ -15,28 +15,9 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTodayLog, fetchCollectorStats, fetchRecollections, isApiConfigured } from "../../../services/googleSheets";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
 
 const SF_KNOWN_NAMES = new Set(["tony a", "veronika t", "travis b"]);
-
-const FUNNY_LOADING_LINES = [
-  "Booting EGO intelligence core...",
-  "Making sure both hands are in frame...",
-  "Raising daily collection hours to 7hrs...",
-  "Making EGO RIGs heavier...",
-  "Calibrating the vibes...",
-  "Polishing camera lenses remotely...",
-  "Convincing rigs to cooperate...",
-  "Asking Redash nicely for data...",
-  "Untangling USB cables mentally...",
-  "Checking if Travis remembered his badge...",
-  "Syncing with the mothership...",
-  "Deploying collection drones... jk...",
-  "Running rig diagnostics... beep boop...",
-  "Warming up the data pipeline...",
-  "Counting hours... carry the 1...",
-];
 
 function normalizeCollectorName(name: string): string {
   return name.replace(/\s*\(.*?\)\s*$/g, "").trim();
@@ -57,7 +38,6 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
   const { colors, isDark } = useTheme();
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({});
   const cursorAnim = useRef(new Animated.Value(0)).current;
-  const scanlineAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const blink = Animated.loop(
@@ -69,14 +49,6 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
     blink.start();
     return () => blink.stop();
   }, [cursorAnim]);
-
-  useEffect(() => {
-    const scan = Animated.loop(
-      Animated.timing(scanlineAnim, { toValue: 1, duration: 4000, useNativeDriver: true })
-    );
-    scan.start();
-    return () => scan.stop();
-  }, [scanlineAnim]);
 
   useEffect(() => {
     lines.forEach((line) => {
@@ -91,8 +63,8 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
     });
   }, [lines]);
 
-  const termColor = isDark ? '#E03030' : '#2563EB';
-  const termDim = isDark ? '#5A4444' : '#8A8A9A';
+  const termColor = colors.terminal;
+  const termDim = colors.terminalDim;
 
   return (
     <View style={cmdStyles.feed}>
@@ -117,7 +89,7 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
           line.type === "header" ? termColor :
           line.type === "cmd" ? colors.terminalGreen :
           line.type === "divider" ? termDim :
-          line.type === "label" ? (isDark ? '#F0A020' : '#7A6B00') :
+          line.type === "label" ? (isDark ? '#FBBF24' : '#B86E00') :
           line.type === "empty" ? "transparent" :
           line.color ?? colors.textPrimary;
 
@@ -206,7 +178,7 @@ function TickerScroll({ items, colors, isDark }: { items: string[]; colors: Retu
     const anim = Animated.loop(
       Animated.timing(scrollX, {
         toValue: -totalWidth,
-        duration: Math.max(totalWidth * 22, 5000),
+        duration: Math.max(totalWidth * 18, 4000),
         useNativeDriver: true,
       })
     );
@@ -217,7 +189,7 @@ function TickerScroll({ items, colors, isDark }: { items: string[]; colors: Retu
   if (!items.length) return null;
 
   const tickerText = items.join("    ·    ");
-  const pillColor = isDark ? '#E03030' : '#DC2626';
+  const pillColor = isDark ? colors.accent : colors.cancel;
 
   return (
     <View style={tickerStyles.container}>
@@ -242,7 +214,7 @@ function TickerScroll({ items, colors, isDark }: { items: string[]; colors: Retu
 export default function LiveScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { configured, collectors, todayLog, selectedCollectorName } = useCollection();
+  const { configured, collectors, todayLog, selectedCollectorName, announcements } = useCollection();
 
   const [liveLines, setLiveLines] = useState<TerminalLine[]>([]);
   const [isOnline, setIsOnline] = useState(false);
@@ -269,9 +241,9 @@ export default function LiveScreen() {
   const recollectionsQuery = useQuery({
     queryKey: ["recollections"],
     queryFn: async () => {
-      console.log("[LIVE] Fetching recollections from ADMIN_DASHBOARD C28+");
+      console.log("[LIVE] Fetching recollections");
       const data = await fetchRecollections();
-      console.log("[LIVE] Recollections received:", data?.length ?? 0, "items");
+      console.log("[LIVE] Recollections received:", data?.length ?? 0);
       return data;
     },
     enabled: configured,
@@ -292,6 +264,11 @@ export default function LiveScreen() {
     if (fallback.length > 0) return fallback;
     return [];
   }, [recollectionsQuery.data, todayLogQuery.data, todayLog]);
+
+  const tickerItems = useMemo(() => {
+    const combined = [...announcements, ...recollectItems];
+    return combined.length > 0 ? combined : ["No pending recollections"];
+  }, [announcements, recollectItems]);
 
   const { mxCollectors, sfCollectors } = useMemo(() => {
     const sf: typeof collectors = [];
@@ -326,15 +303,15 @@ export default function LiveScreen() {
     const lines: TerminalLine[] = [];
     const ts = Date.now();
 
-    const loadingLine = FUNNY_LOADING_LINES[Math.floor(Math.random() * FUNNY_LOADING_LINES.length)];
-    lines.push({ id: `boot_${ts}`, text: loadingLine, type: "cmd" });
     lines.push({ id: `sys_${ts}_0`, text: "EGO COLLECTION INTELLIGENCE SYSTEM", type: "header" });
     lines.push({ id: `sys_${ts}_1`, text: "═".repeat(40), type: "divider" });
     lines.push({ id: `sys_${ts}_2`, text: "", type: "empty" });
 
+    const mxRigs = mxCollectors.length > 0 ? mxCollectors.reduce((s, c) => s + c.rigs.length, 0) : Math.max(Math.floor(collectors.length * 0.55), 1);
+    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
+
     lines.push({ id: `mx_${ts}_h`, text: "EGO-MX  /  LOS CABOS", type: "header" });
     const mxCount = mxCollectors.length > 0 ? mxCollectors.length : Math.max(Math.floor(collectors.length * 0.55), 1);
-    const mxRigs = mxCollectors.length > 0 ? mxCollectors.reduce((s, c) => s + c.rigs.length, 0) : mxCount;
     lines.push({ id: `mx_${ts}_c`, text: `Collectors:   ${mxCount}`, type: "data", color: colors.textPrimary });
     lines.push({ id: `mx_${ts}_r`, text: `Active Rigs:  ${mxRigs}`, type: "data", color: colors.textPrimary });
 
@@ -349,7 +326,6 @@ export default function LiveScreen() {
     lines.push({ id: `div2_${ts}`, text: "", type: "empty" });
     lines.push({ id: `sf_${ts}_h`, text: "EGO-SF  /  SAN FRANCISCO", type: "header" });
     const sfCount = sfCollectors.length > 0 ? sfCollectors.length : 3;
-    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
     lines.push({ id: `sf_${ts}_c`, text: `Collectors:   ${sfCount}`, type: "data", color: colors.textPrimary });
     lines.push({ id: `sf_${ts}_r`, text: `Active Rigs:  ${sfRigs}`, type: "data", color: colors.textPrimary });
 
@@ -396,11 +372,19 @@ export default function LiveScreen() {
       lines.push({ id: `rec_${ts}_d`, text: "", type: "empty" });
     }
 
+    if (announcements.length > 0) {
+      lines.push({ id: `ann_${ts}_h`, text: "ANNOUNCEMENTS", type: "header" });
+      announcements.forEach((item, i) => {
+        lines.push({ id: `ann_${ts}_${i}`, text: item, type: "data", color: colors.statusPending });
+      });
+      lines.push({ id: `ann_${ts}_d`, text: "", type: "empty" });
+    }
+
     lines.push({ id: `sys2_${ts}`, text: "═".repeat(40), type: "divider" });
     lines.push({ id: `rd_${ts}`, text: `LAST REDASH PULL: ${lastRefresh}`, type: "label" });
 
     return lines;
-  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount]);
+  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount, announcements]);
 
   useEffect(() => {
     setIsOnline(configured);
@@ -425,7 +409,7 @@ export default function LiveScreen() {
     };
 
     feed();
-    intervalRef.current = setInterval(feed, 120);
+    intervalRef.current = setInterval(feed, 35);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -433,7 +417,7 @@ export default function LiveScreen() {
   }, [allLines, configured]);
 
   const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
-  const bgMain = isDark ? '#141414' : '#F8F6EE';
+  const bgMain = isDark ? colors.terminalBg : '#F5F2E8';
 
   return (
     <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
@@ -442,9 +426,9 @@ export default function LiveScreen() {
       </View>
 
       <View style={[styles.header, {
-        backgroundColor: isDark ? '#1E1E1E' : '#FFFDF5',
-        shadowColor: isDark ? '#000' : '#1A1400',
-        borderColor: isDark ? '#333' : '#E0DCCF',
+        backgroundColor: isDark ? '#151515' : '#FFFFF5',
+        shadowColor: isDark ? colors.accent : '#1A1400',
+        borderColor: isDark ? '#2A2A2A' : '#D8D1C2',
       }]}>
         <View style={styles.headerLeft}>
           <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>SYSTEM</Text>
@@ -481,19 +465,20 @@ export default function LiveScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.terminalWindow, {
-          backgroundColor: isDark ? '#0E0E0E' : '#FFFFF8',
-          borderColor: isDark ? '#2A2A2A' : '#DDD8C8',
+          backgroundColor: isDark ? '#0C0C0C' : '#FFFFF8',
+          borderColor: isDark ? '#222222' : '#D8D1C2',
+          shadowColor: isDark ? colors.accent : '#1A1400',
         }]}>
           <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} />
         </View>
       </ScrollView>
 
       <View style={[styles.tickerBar, {
-        backgroundColor: isDark ? '#1A1A1A' : '#F0EDE2',
-        borderTopColor: isDark ? '#2A2A2A' : '#E0DCCF',
+        backgroundColor: isDark ? '#141414' : '#EDE8DB',
+        borderTopColor: isDark ? '#222222' : '#D8D1C2',
       }]}>
         <TickerScroll
-          items={recollectItems.length > 0 ? recollectItems : ["No pending recollections"]}
+          items={tickerItems}
           colors={colors}
           isDark={isDark}
         />
@@ -597,7 +582,7 @@ const styles = StyleSheet.create({
   },
   clockRow: {
     alignItems: "center",
-    paddingTop: 4,
+    paddingTop: 2,
     paddingBottom: 6,
   },
   header: {
@@ -611,9 +596,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
   },
   headerLeft: {},
   headerTitle: {
@@ -668,6 +653,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 6,
     overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 6,
   },
   tickerBar: {
     borderTopWidth: 1,

@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ThemeProvider, useTheme } from "../providers/ThemeProvider";
 import { CollectionProvider } from "../providers/CollectionProvider";
+import AppLoadingScreen from "../components/AppLoadingScreen";
 import {
   useFonts,
   Lexend_400Regular,
@@ -20,6 +21,7 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   const { colors, isDark } = useTheme();
+  const [appReady, setAppReady] = useState(false);
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -28,6 +30,7 @@ function RootLayoutNav() {
         <Stack screenOptions={{ headerBackTitle: "Back" }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        {!appReady && <AppLoadingScreen onFinish={() => setAppReady(true)} />}
       </CollectionProvider>
     </GestureHandlerRootView>
   );

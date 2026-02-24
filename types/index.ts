@@ -111,3 +111,11 @@ export interface AdminDashboardData {
   inProgressTasks: number;
   recollectTasks: number;
 }
+
+export interface LeaderboardEntry {
+  collectorName: string;
+  weeklyHours: number;
+  weeklyCompleted: number;
+  weeklyAssigned: number;
+  rank: number;
+}
