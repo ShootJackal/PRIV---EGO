@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sun, Moon, BookOpen, ChevronRight, Trophy } from "lucide-react-native";
@@ -551,7 +552,7 @@ export default function LiveScreen() {
     const sf: typeof collectors = [];
     const mx: typeof collectors = [];
     for (const c of collectors) {
-      const hasSFRig = c.rigs.some((r) => r.toUpperCase().includes("SF"));
+      const hasSFRig = c.rigs.some((r) => /^EGO-PROD-(2|3|4|5|6|9)$/i.test(r.trim()));
       const isSFByName = SF_KNOWN_NAMES.has(normForMatch(c.name));
       if (hasSFRig || isSFByName) {
         sf.push(c);
@@ -562,12 +563,25 @@ export default function LiveScreen() {
     return { mxCollectors: mx, sfCollectors: sf };
   }, [collectors]);
 
-  const totalRigCount = useMemo(() => {
-    const mxRigs = mxCollectors.reduce((s, c) => s + c.rigs.length, 0);
-    const sfRigs = sfCollectors.reduce((s, c) => s + c.rigs.length, 0);
-    const sfFallback = sfCollectors.length > 0 ? sfRigs : 3;
-    return mxRigs + sfFallback;
+  const activeRigs = useMemo(() => {
+    const mxRigSet = new Set<string>();
+    const sfRigSet = new Set<string>();
+    for (const c of mxCollectors) {
+      c.rigs.forEach((r) => mxRigSet.add(r));
+    }
+    for (const c of sfCollectors) {
+      c.rigs.forEach((r) => sfRigSet.add(r));
+    }
+    return {
+      mx: Array.from(mxRigSet).sort(),
+      sf: Array.from(sfRigSet).sort(),
+      totalMx: mxRigSet.size,
+      totalSf: sfRigSet.size,
+      total: mxRigSet.size + sfRigSet.size,
+    };
   }, [mxCollectors, sfCollectors]);
+
+  const totalRigCount = activeRigs.total;
 
   const lastRefresh = useMemo(() => {
     const d = new Date();
@@ -590,7 +604,10 @@ export default function LiveScreen() {
     lines.push({ id: `mx_${ts}_h`, text: "EGO-MX  /  LOS CABOS", type: "header" });
     const mxCount = mxCollectors.length > 0 ? mxCollectors.length : Math.max(Math.floor(collectors.length * 0.55), 1);
     lines.push({ id: `mx_${ts}_c`, text: `Collectors:   ${mxCount}`, type: "data", color: colors.textPrimary });
-    lines.push({ id: `mx_${ts}_r`, text: `Active Rigs:  ${mxRigs}`, type: "data", color: colors.textPrimary });
+    lines.push({ id: `mx_${ts}_r`, text: `Active Rigs:  ${activeRigs.totalMx}`, type: "data", color: colors.textPrimary });
+    if (activeRigs.mx.length > 0) {
+      lines.push({ id: `mx_${ts}_rlist`, text: `Rigs: ${activeRigs.mx.join(", ")}`, type: "label" });
+    }
 
     if (stats) {
       lines.push({ id: `mx_${ts}_t`, text: `Tasks Logged: ${stats.totalAssigned}`, type: "data", color: colors.accentLight });
@@ -604,17 +621,9 @@ export default function LiveScreen() {
     lines.push({ id: `sf_${ts}_h`, text: "EGO-SF  /  SAN FRANCISCO", type: "header" });
     const sfCount = sfCollectors.length > 0 ? sfCollectors.length : 3;
     lines.push({ id: `sf_${ts}_c`, text: `Collectors:   ${sfCount}`, type: "data", color: colors.textPrimary });
-    lines.push({ id: `sf_${ts}_r`, text: `Active Rigs:  ${sfRigs}`, type: "data", color: colors.textPrimary });
-
-    if (stats) {
-      const sfTaskEstimate = Math.max(Math.round(stats.totalAssigned * 0.4), 1);
-      const sfHrsEstimate = Number((stats.totalLoggedHours * 0.35).toFixed(1));
-      const sfRate = Math.min(stats.completionRate + 5, 100);
-      lines.push({ id: `sf_${ts}_t`, text: `Tasks Logged: ${sfTaskEstimate}`, type: "data", color: colors.accentLight });
-      lines.push({ id: `sf_${ts}_h2`, text: `Hours:        ${sfHrsEstimate}h`, type: "data", color: colors.accentLight });
-      lines.push({ id: `sf_${ts}_r2`, text: `Rate:         ${sfRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
-    } else {
-      lines.push({ id: `sf_${ts}_t`, text: "Awaiting data feed...", type: "label" });
+    lines.push({ id: `sf_${ts}_r`, text: `Active Rigs:  ${activeRigs.totalSf}`, type: "data", color: colors.textPrimary });
+    if (activeRigs.sf.length > 0) {
+      lines.push({ id: `sf_${ts}_rlist`, text: `Rigs: ${activeRigs.sf.join(", ")}`, type: "label" });
     }
 
     if (sfCollectors.length > 0) {
@@ -631,7 +640,7 @@ export default function LiveScreen() {
       lines.push({ id: `avg_${ts}_2`, text: `Avg Hrs/Task: ${stats.avgHoursPerTask.toFixed(2)}h`, type: "data", color: colors.textPrimary });
       lines.push({ id: `avg_${ts}_3`, text: `Weekly Hrs:   ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
       lines.push({ id: `avg_${ts}_4`, text: `Weekly Done:  ${stats.weeklyCompleted}`, type: "data", color: colors.terminalGreen });
-      lines.push({ id: `avg_${ts}_5`, text: `Total Rigs:   ${totalRigCount} (MX: ${mxRigs} + SF: ${sfRigs})`, type: "data", color: colors.textPrimary });
+      lines.push({ id: `avg_${ts}_5`, text: `Total Rigs:   ${totalRigCount} (MX: ${activeRigs.totalMx} + SF: ${activeRigs.totalSf})`, type: "data", color: colors.textPrimary });
     } else {
       lines.push({ id: `avg_${ts}_1`, text: "Syncing with server...", type: "label" });
     }
@@ -665,7 +674,7 @@ export default function LiveScreen() {
     lines.push({ id: `rd_${ts}`, text: `LAST REDASH PULL: ${lastRefresh}`, type: "label" });
 
     return lines;
-  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount, announcements]);
+  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount, announcements, activeRigs]);
 
   useEffect(() => {
     setIsOnline(configured);
@@ -741,18 +750,11 @@ export default function LiveScreen() {
   return (
     <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
       <View style={styles.brandRow}>
-        <Animated.Text
-          style={[
-            styles.brandName,
-            {
-              color: colors.accent,
-              fontFamily: FONT_MONO,
-              opacity: nameGlow,
-            },
-          ]}
-        >
-          T A S K F L O W
-        </Animated.Text>
+        <Image
+          source={require("../../../assets/images/taskflow-logo.png")}
+          style={styles.brandLogo}
+          resizeMode="contain"
+        />
       </View>
 
       <SkyDayTracker />
@@ -992,7 +994,7 @@ const ntStyles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    height: 32,
+    height: 26,
     overflow: "hidden",
   },
   pillWrap: {
@@ -1017,7 +1019,7 @@ const ntStyles = StyleSheet.create({
   scrollArea: {
     flex: 1,
     overflow: "hidden",
-    height: 32,
+    height: 26,
     justifyContent: "center",
     paddingLeft: 10,
   },
@@ -1032,13 +1034,13 @@ const styles = StyleSheet.create({
   },
   brandRow: {
     alignItems: "center",
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 2,
   },
-  brandName: {
-    fontSize: 20,
-    fontWeight: "900" as const,
-    letterSpacing: 10,
+  brandLogo: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
   },
   header: {
     flexDirection: "row",

@@ -334,6 +334,8 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
         }
       }
 
+      const MAX_WEEKLY_HOURS = 100;
+
       const entries: LeaderboardEntry[] = Array.from(collectorMap.entries())
         .filter(([, stats]) => stats.hours > 0 || stats.assigned > 0 || stats.sitesWorked.size > 0)
         .map(([name, stats]) => {
@@ -341,9 +343,14 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
             stats.sitesWorked.size > 0
               ? resolveLocations(stats.sitesWorked)
               : { location: stats.fallbackLocation as "SF" | "MX" | "BOTH" | "OTHER", locations: stats.fallbackLocation !== "OTHER" ? [stats.fallbackLocation as "SF" | "MX"] : [] };
+          const rawHours = Math.round(stats.hours * 10) / 10;
+          const cappedHours = Math.min(rawHours, MAX_WEEKLY_HOURS);
+          if (rawHours > MAX_WEEKLY_HOURS) {
+            console.log(`[Leaderboard] Capping ${name} hours from ${rawHours} to ${MAX_WEEKLY_HOURS}`);
+          }
           return {
             collectorName: name,
-            weeklyHours: Math.round(stats.hours * 10) / 10,
+            weeklyHours: cappedHours,
             weeklyCompleted: stats.completed,
             weeklyAssigned: stats.assigned,
             location,
@@ -421,10 +428,19 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     console.log("[Provider] selectCollector:", name);
     setSelectedCollectorName(name);
     setSelectedTaskName("");
-    setSelectedRigState("");
     await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_COLLECTOR, name);
-    await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_RIG, "");
-  }, []);
+
+    const matched = collectors.find((c) => c.name === name);
+    if (matched && matched.rigs.length > 0) {
+      const autoRig = matched.rigs[0];
+      console.log("[Provider] Auto-setting rig from collectors sheet:", autoRig, "all rigs:", matched.rigs);
+      setSelectedRigState(autoRig);
+      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_RIG, autoRig);
+    } else {
+      setSelectedRigState("");
+      await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_RIG, "");
+    }
+  }, [collectors]);
 
   const setSelectedRig = useCallback(async (rig: string) => {
     console.log("[Provider] setSelectedRig:", rig);

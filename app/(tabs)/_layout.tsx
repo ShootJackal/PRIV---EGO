@@ -47,13 +47,13 @@ function AlertDot() {
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 0.4,
-          duration: 900,
+          toValue: 0.3,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 900,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
@@ -199,14 +199,6 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
                 ]}
               >
                 {cfg.icon(iconColor, 20)}
-                {isLive && (
-                  <View
-                    style={[
-                      barStyles.liveBlip,
-                      { backgroundColor: colors.terminalGreen },
-                    ]}
-                  />
-                )}
                 {isLive && !isFocused && <AlertDot />}
               </View>
               <Text
@@ -380,22 +372,20 @@ const barStyles = StyleSheet.create({
   },
   liveBlip: {
     position: "absolute",
-    top: 3,
-    right: 5,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    top: 2,
+    right: 4,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   alertDot: {
     position: "absolute",
-    top: 1,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 2,
+    right: 4,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: "#FF3B30",
-    borderWidth: 1.5,
-    borderColor: "#1A1A1F",
   },
   label: {
     textTransform: "uppercase",

@@ -322,6 +322,7 @@ export default function ToolsScreen() {
 
   const [newAnnouncement, setNewAnnouncement] = useState("");
   const [rigNumberInput, setRigNumberInput] = useState("");
+  const [showManualRig, setShowManualRig] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
@@ -510,55 +511,72 @@ export default function ToolsScreen() {
                   <Text style={[styles.settingLabel, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
                     Your Rig
                   </Text>
-                  <View style={styles.rigInputRow}>
-                    <Text style={[styles.rigPrefix, { color: colors.textMuted }]}>EGO-PROD-</Text>
-                    <TextInput
-                      style={[
-                        styles.rigNumberInput,
-                        {
-                          backgroundColor: colors.bgInput,
-                          borderColor: colors.border,
-                          color: colors.textPrimary,
-                        },
-                      ]}
-                      value={rigNumberInput}
-                      onChangeText={handleRigNumberChange}
-                      placeholder="#"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      testID="rig-number-input"
-                    />
-                  </View>
-                  {rigOptions.length > 0 && (
-                    <View style={styles.rigChipsRow}>
-                      {rigOptions.map((r) => (
+                  {rigOptions.length > 0 ? (
+                    <>
+                      <View style={styles.rigChipsRow}>
+                        {rigOptions.map((r) => (
+                          <TouchableOpacity
+                            key={r.value}
+                            style={[
+                              styles.rigChip,
+                              {
+                                backgroundColor: r.value === selectedRig ? colors.accentSoft : colors.bgInput,
+                                borderColor: r.value === selectedRig ? colors.accent : colors.border,
+                              },
+                            ]}
+                            onPress={() => {
+                              handleSelectRig(r.value);
+                              const num = r.value.replace("EGO-PROD-", "");
+                              setRigNumberInput(num);
+                              setShowManualRig(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.rigChipText,
+                                { color: r.value === selectedRig ? colors.accent : colors.textSecondary },
+                              ]}
+                            >
+                              {r.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      {!showManualRig && (
                         <TouchableOpacity
-                          key={r.value}
-                          style={[
-                            styles.rigChip,
-                            {
-                              backgroundColor: r.value === selectedRig ? colors.accentSoft : colors.bgInput,
-                              borderColor: r.value === selectedRig ? colors.accent : colors.border,
-                            },
-                          ]}
-                          onPress={() => {
-                            handleSelectRig(r.value);
-                            const num = r.value.replace("EGO-PROD-", "");
-                            setRigNumberInput(num);
-                          }}
+                          style={[styles.manualRigBtn, { borderColor: colors.border }]}
+                          onPress={() => setShowManualRig(true)}
                           activeOpacity={0.7}
                         >
-                          <Text
-                            style={[
-                              styles.rigChipText,
-                              { color: r.value === selectedRig ? colors.accent : colors.textSecondary },
-                            ]}
-                          >
-                            {r.label}
+                          <Plus size={12} color={colors.textMuted} />
+                          <Text style={[styles.manualRigBtnText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                            Different rig
                           </Text>
                         </TouchableOpacity>
-                      ))}
+                      )}
+                    </>
+                  ) : null}
+                  {(rigOptions.length === 0 || showManualRig) && (
+                    <View style={[styles.rigInputRow, { marginTop: rigOptions.length > 0 ? 8 : 0 }]}>
+                      <Text style={[styles.rigPrefix, { color: colors.textMuted }]}>EGO-PROD-</Text>
+                      <TextInput
+                        style={[
+                          styles.rigNumberInput,
+                          {
+                            backgroundColor: colors.bgInput,
+                            borderColor: colors.border,
+                            color: colors.textPrimary,
+                          },
+                        ]}
+                        value={rigNumberInput}
+                        onChangeText={handleRigNumberChange}
+                        placeholder="#"
+                        placeholderTextColor={colors.textMuted}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        testID="rig-number-input"
+                      />
                     </View>
                   )}
                 </View>
@@ -1011,6 +1029,21 @@ const styles = StyleSheet.create({
   rigChipText: {
     fontSize: 11,
     fontWeight: "600" as const,
+  },
+  manualRigBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: "dashed" as const,
+    alignSelf: "flex-start" as const,
+  },
+  manualRigBtnText: {
+    fontSize: 11,
   },
   profileBadge: {
     flexDirection: "row" as const,
