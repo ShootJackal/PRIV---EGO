@@ -34,7 +34,23 @@ function normalizeCollectorName(name: string): string {
   return name.replace(/\s*\(.*?\)\s*$/g, "").trim();
 }
 
-function extractLocation(name: string): "SF" | "MX" | "OTHER" {
+const SF_RIG_PATTERN = /^EGO-PROD-(2|3|4|5|6|9)$/i;
+
+function isSFRig(rigId: string): boolean {
+  return SF_RIG_PATTERN.test(rigId.trim());
+}
+
+function getLocationByRigs(rigs: string[]): "SF" | "MX" | "OTHER" {
+  if (!rigs || rigs.length === 0) return "OTHER";
+  const sfCount = rigs.filter(isSFRig).length;
+  const mxCount = rigs.length - sfCount;
+  if (sfCount > 0 && mxCount === 0) return "SF";
+  if (mxCount > 0 && sfCount === 0) return "MX";
+  if (sfCount > 0) return sfCount >= mxCount ? "SF" : "MX";
+  return "OTHER";
+}
+
+function extractLocationFallback(name: string): "SF" | "MX" | "OTHER" {
   const match = name.match(/\(([^)]+)\)\s*$/);
   if (match) {
     const tag = match[1].toUpperCase().trim();
@@ -193,15 +209,29 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     queryKey: ["weeklyLeaderboard"],
     queryFn: async () => {
       console.log("[Provider] Fetching leaderboard from full log");
-      const allEntries = await fetchFullLog();
+      const [allEntries, rawCollectors] = await Promise.all([
+        fetchFullLog(),
+        fetchCollectors(),
+      ]);
       const weekStart = getWeekStart();
+
+      const mergedCollectors = mergeCollectors(rawCollectors);
+      const rigLocationMap = new Map<string, "SF" | "MX" | "OTHER">();
+      for (const c of mergedCollectors) {
+        const loc = getLocationByRigs(c.rigs);
+        rigLocationMap.set(c.name.toLowerCase(), loc);
+      }
+
+      console.log("[Provider] Rig location map built for", rigLocationMap.size, "collectors");
 
       const collectorMap = new Map<string, { hours: number; completed: number; assigned: number; location: "SF" | "MX" | "OTHER" }>();
       for (const entry of allEntries) {
         const d = new Date(entry.assignedDate);
         if (isNaN(d.getTime()) || d < weekStart) continue;
-        const location = extractLocation(entry.collector);
         const name = normalizeCollectorName(entry.collector);
+        const location =
+          rigLocationMap.get(name.toLowerCase()) ??
+          extractLocationFallback(entry.collector);
         if (!collectorMap.has(name)) {
           collectorMap.set(name, { hours: 0, completed: 0, assigned: 0, location });
         }
