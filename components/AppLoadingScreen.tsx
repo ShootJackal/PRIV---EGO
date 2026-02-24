@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, Animated, Platform, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Animated, Platform, Dimensions, Image } from "react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
@@ -32,10 +32,35 @@ export default function AppLoadingScreen({ onFinish }: Props) {
   const fadeOut = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const cursorAnim = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const terminalOpacity = useRef(new Animated.Value(0)).current;
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
 
   useEffect(() => {
+    Animated.parallel([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 60,
+        friction: 8,
+      }),
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setTimeout(() => {
+      Animated.timing(terminalOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }, 400);
+
     const shuffled = [...ALL_LINES].sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, 5);
 
@@ -49,26 +74,26 @@ export default function AppLoadingScreen({ onFinish }: Props) {
 
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 3000,
+      duration: 3200,
       useNativeDriver: false,
     }).start();
 
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    setLines(["$ ego-system --boot"]);
+    setLines(["$ taskflow --boot"]);
 
     selected.forEach((line, i) => {
       timers.push(
         setTimeout(() => {
           setLines((prev) => [...prev, `> ${line}`]);
-        }, 350 + i * 420)
+        }, 500 + i * 440)
       );
     });
 
     timers.push(
       setTimeout(() => {
         setLines((prev) => [...prev, "[ OK ] System online. Let's collect."]);
-      }, 350 + selected.length * 420)
+      }, 500 + selected.length * 440)
     );
 
     timers.push(
@@ -76,30 +101,49 @@ export default function AppLoadingScreen({ onFinish }: Props) {
         blink.stop();
         Animated.timing(fadeOut, {
           toValue: 0,
-          duration: 350,
+          duration: 400,
           useNativeDriver: true,
         }).start(() => {
           onFinishRef.current();
         });
-      }, 650 + selected.length * 420)
+      }, 800 + selected.length * 440)
     );
 
     return () => {
       timers.forEach(clearTimeout);
       blink.stop();
     };
-  }, [fadeOut, progressAnim, cursorAnim]);
+  }, [fadeOut, progressAnim, cursorAnim, logoScale, logoOpacity, terminalOpacity]);
 
   return (
     <Animated.View style={[s.container, { opacity: fadeOut }]}>
-      <View style={s.terminal}>
+      <View style={s.bgGlow} />
+
+      <Animated.View
+        style={[
+          s.logoWrap,
+          { opacity: logoOpacity, transform: [{ scale: logoScale }] },
+        ]}
+      >
+        <View style={s.logoIconBox}>
+          <Image
+            source={require("../assets/images/taskflow-logo.png")}
+            style={s.logoIcon}
+            resizeMode="contain"
+          />
+        </View>
+        <Text style={s.logoName}>TaskFlow</Text>
+        <Text style={s.logoSub}>EGO COLLECTION INTELLIGENCE</Text>
+      </Animated.View>
+
+      <Animated.View style={[s.terminal, { opacity: terminalOpacity }]}>
         <View style={s.headerBar}>
           <View style={s.dotRow}>
             <View style={[s.dot, { backgroundColor: "#FF5F57" }]} />
             <View style={[s.dot, { backgroundColor: "#FEBC2E" }]} />
             <View style={[s.dot, { backgroundColor: "#28C840" }]} />
           </View>
-          <Text style={s.headerTitle}>ego-system — boot</Text>
+          <Text style={s.headerTitle}>taskflow — boot sequence</Text>
         </View>
 
         <View style={s.body}>
@@ -137,9 +181,7 @@ export default function AppLoadingScreen({ onFinish }: Props) {
             ]}
           />
         </View>
-      </View>
-
-      <Text style={s.brand}>EGO COLLECTION INTELLIGENCE</Text>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -147,19 +189,68 @@ export default function AppLoadingScreen({ onFinish }: Props) {
 const s = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#080808",
+    backgroundColor: "#07050F",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
+    gap: 28,
+  },
+  bgGlow: {
+    position: "absolute",
+    top: "20%",
+    left: "50%",
+    marginLeft: -120,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "#7C3AED",
+    opacity: 0.08,
+  },
+  logoWrap: {
+    alignItems: "center",
+    gap: 10,
+  },
+  logoIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 22,
+    overflow: "hidden",
+    shadowColor: "#9B7BF7",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  logoIcon: {
+    width: 80,
+    height: 80,
+  },
+  logoName: {
+    color: "#EEE8FF",
+    fontSize: 28,
+    fontFamily: "Lexend_700Bold",
+    letterSpacing: -0.5,
+  },
+  logoSub: {
+    color: "#5C5475",
+    fontSize: 9,
+    fontFamily: "Courier New",
+    letterSpacing: 3,
+    textTransform: "uppercase",
   },
   terminal: {
     width: SCREEN_WIDTH - 48,
     maxWidth: 400,
-    backgroundColor: "#111111",
+    backgroundColor: "#0F0F1A",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#2A2A2A",
+    borderColor: "#2A2A3D",
     overflow: "hidden",
+    shadowColor: "#9B7BF7",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 16,
   },
   headerBar: {
     flexDirection: "row",
@@ -167,7 +258,8 @@ const s = StyleSheet.create({
     padding: 12,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#1E1E1E",
+    borderBottomColor: "#1E1E2A",
+    backgroundColor: "#0A0A14",
   },
   dotRow: {
     flexDirection: "row",
@@ -179,14 +271,14 @@ const s = StyleSheet.create({
     borderRadius: 5,
   },
   headerTitle: {
-    color: "#555555",
+    color: "#5C5475",
     fontSize: 11,
     fontFamily: FONT_MONO,
     letterSpacing: 0.5,
   },
   body: {
     padding: 16,
-    minHeight: 200,
+    minHeight: 160,
   },
   line: {
     color: "#9B7BF7",
@@ -210,18 +302,15 @@ const s = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    backgroundColor: "#1A1A1A",
+    backgroundColor: "#1A1A2E",
   },
   progressFill: {
     height: 3,
     backgroundColor: "#9B7BF7",
     borderRadius: 2,
-  },
-  brand: {
-    color: "#333333",
-    fontSize: 10,
-    fontFamily: FONT_MONO,
-    letterSpacing: 3,
-    marginTop: 24,
+    shadowColor: "#9B7BF7",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
   },
 });

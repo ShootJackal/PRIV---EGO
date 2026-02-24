@@ -10,6 +10,7 @@ import {
   Animated,
   Dimensions,
   PanResponder,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -79,37 +80,43 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
   const BOTTOM_PAD = insets.bottom > 0 ? insets.bottom : 12;
 
   const gradientColors = isDark
-    ? ['transparent', 'rgba(15,15,15,0.92)', 'rgba(15,15,15,0.99)'] as const
-    : ['transparent', 'rgba(250,246,237,0.92)', 'rgba(250,246,237,0.99)'] as const;
+    ? ["transparent", "rgba(7,5,15,0.94)", "rgba(7,5,15,1.0)"] as const
+    : ["transparent", "rgba(250,246,237,0.94)", "rgba(250,246,237,1.0)"] as const;
+
+  const islandBg = isDark ? "#13111E" : "#FFFFF8";
+  const islandBorder = isDark ? "#2A2A3D" : "#D8D1C2";
+  const shadowColor = isDark ? "#9B7BF7" : "#7C3AED";
 
   return (
     <View style={[barStyles.outerWrap, { paddingBottom: BOTTOM_PAD }]}>
       <LinearGradient
         colors={gradientColors}
         style={barStyles.gradient}
-        locations={[0, 0.4, 1]}
+        locations={[0, 0.35, 1]}
         pointerEvents="none"
       />
       <View
         style={[
           barStyles.island,
           {
-            backgroundColor: isDark ? '#1A1A1A' : '#FFFFF5',
-            shadowColor: isDark ? colors.accent : '#1A1400',
-            borderColor: isDark ? '#333333' : '#D0C9BA',
+            backgroundColor: islandBg,
+            borderColor: islandBorder,
+            shadowColor,
           },
-          isDark ? {
-            shadowColor: colors.accent,
-            shadowOpacity: 0.2,
-            shadowRadius: 24,
-            elevation: 28,
-          } : {
-            shadowOpacity: 0.18,
-            shadowRadius: 20,
-            elevation: 24,
-          },
+          isDark
+            ? { shadowOpacity: 0.25, shadowRadius: 28, elevation: 32 }
+            : { shadowOpacity: 0.14, shadowRadius: 22, elevation: 24 },
         ]}
       >
+        {isDark && (
+          <LinearGradient
+            colors={["rgba(155,123,247,0.06)", "transparent"] as const}
+            style={barStyles.islandTopSheen}
+            locations={[0, 1]}
+            pointerEvents="none"
+          />
+        )}
+
         <Animated.View
           style={[
             barStyles.slider,
@@ -146,7 +153,9 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
                   isFocused && {
                     backgroundColor: isLive
                       ? colors.complete + "18"
-                      : colors.accentSoft,
+                      : isDark
+                        ? "rgba(155,123,247,0.14)"
+                        : "rgba(124,58,237,0.1)",
                     borderRadius: 12,
                   },
                 ]}
@@ -178,6 +187,20 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function TaskFlowHeader() {
+  const { colors, isDark } = useTheme();
+  return (
+    <View style={[hStyles.wrap, { backgroundColor: colors.bg, borderBottomColor: colors.borderLight }]}>
+      <Image
+        source={require("../../assets/images/taskflow-logo.png")}
+        style={hStyles.logo}
+        resizeMode="contain"
+      />
+      <Text style={[hStyles.name, { color: colors.textPrimary }]}>TaskFlow</Text>
     </View>
   );
 }
@@ -224,7 +247,7 @@ function SwipeWrapper({
 }
 
 export default function TabLayout() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   return (
     <Tabs
@@ -241,13 +264,17 @@ export default function TabLayout() {
         options={{
           title: "Collect",
           headerShown: true,
-          headerStyle: { backgroundColor: colors.bg },
+          headerStyle: {
+            backgroundColor: colors.bg,
+          },
           headerTintColor: colors.textPrimary,
           headerTitleStyle: {
             fontFamily: "Lexend_700Bold",
             fontSize: 17,
+            color: colors.textPrimary,
           },
           headerShadowVisible: false,
+          headerTitle: () => <TaskFlowHeader />,
         }}
       />
       <Tabs.Screen name="live" options={{ title: "LIVE" }} />
@@ -271,25 +298,31 @@ const barStyles = StyleSheet.create({
     bottom: -10,
     left: 0,
     right: 0,
-    height: 110,
+    height: 120,
   },
   island: {
     flexDirection: "row",
-    borderRadius: 28,
+    borderRadius: 30,
     borderWidth: 1,
     paddingVertical: 6,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 24,
-    elevation: 24,
+    shadowOffset: { width: 0, height: -2 },
     position: "relative",
     overflow: "hidden",
     width: "100%",
   },
+  islandTopSheen: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 18,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+  },
   slider: {
     position: "absolute",
     bottom: 0,
-    height: 2.5,
+    height: 3,
     borderTopLeftRadius: 2,
     borderTopRightRadius: 2,
   },
@@ -316,5 +349,24 @@ const barStyles = StyleSheet.create({
   },
   label: {
     textTransform: "uppercase",
+  },
+});
+
+const hStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 2,
+  },
+  logo: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+  },
+  name: {
+    fontSize: 18,
+    fontFamily: "Lexend_700Bold",
+    letterSpacing: -0.3,
   },
 });
