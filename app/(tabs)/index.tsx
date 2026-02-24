@@ -69,7 +69,10 @@ export default function DashboardScreen() {
   }, [fadeAnim, slideAnim]);
 
   const collectorOptions = useMemo(
-    () => collectors.map((c) => ({ value: c.name, label: c.name })),
+    () => collectors.map((c) => ({
+      value: c.name,
+      label: c.rigs.length > 0 ? `${c.name}  (${c.rigs.join(", ")})` : c.name,
+    })),
     [collectors]
   );
 
@@ -290,6 +293,8 @@ export default function DashboardScreen() {
                 onValueChange={setSelectedTaskName}
                 placeholder="Choose a task..."
                 testID="task-picker"
+                searchable
+                searchPlaceholder="Search tasks..."
               />
             </View>
 

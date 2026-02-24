@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   StyleSheet,
   Animated,
   Platform,
+  TextInput,
 } from "react-native";
-import { ChevronDown, Check } from "lucide-react-native";
+import { ChevronDown, Check, Search } from "lucide-react-native";
 import { useTheme } from "../providers/ThemeProvider";
 
 interface Option {
@@ -24,6 +25,8 @@ interface SelectPickerProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   testID?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export default React.memo(function SelectPicker({
@@ -33,12 +36,21 @@ export default React.memo(function SelectPicker({
   onValueChange,
   placeholder = "Select...",
   testID,
+  searchable = false,
+  searchPlaceholder = "Search...",
 }: SelectPickerProps) {
   const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const selectedOption = options.find((o) => o.value === selectedValue);
+
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !searchQuery.trim()) return options;
+    const q = searchQuery.toLowerCase().trim();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, searchQuery, searchable]);
 
   const open = useCallback(() => {
     setVisible(true);
@@ -54,7 +66,10 @@ export default React.memo(function SelectPicker({
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
-    }).start(() => setVisible(false));
+    }).start(() => {
+      setVisible(false);
+      setSearchQuery("");
+    });
   }, [fadeAnim]);
 
   const handleSelect = useCallback(
@@ -148,8 +163,23 @@ export default React.memo(function SelectPicker({
             <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
               {label || "Select Option"}
             </Text>
+            {searchable && (
+              <View style={[styles.searchRow, { backgroundColor: colors.bgInput, borderColor: colors.border }]}>
+                <Search size={15} color={colors.textMuted} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.textPrimary }]}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={searchPlaceholder}
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus
+                  autoCorrect={false}
+                  testID={testID ? `${testID}-search` : undefined}
+                />
+              </View>
+            )}
             <FlatList
-              data={options}
+              data={filteredOptions}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               style={styles.list}
@@ -230,5 +260,21 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     fontWeight: "600" as const,
+  },
+  searchRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 10 : 6,
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "400" as const,
+    padding: 0,
   },
 });

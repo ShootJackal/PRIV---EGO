@@ -321,6 +321,7 @@ export default function ToolsScreen() {
   } = useCollection();
 
   const [newAnnouncement, setNewAnnouncement] = useState("");
+  const [rigNumberInput, setRigNumberInput] = useState("");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
@@ -333,7 +334,10 @@ export default function ToolsScreen() {
   }, [fadeAnim, slideAnim]);
 
   const collectorOptions = useMemo(
-    () => collectors.map((c) => ({ value: c.name, label: c.name })),
+    () => collectors.map((c) => ({
+      value: c.name,
+      label: c.rigs.length > 0 ? `${c.name}  (${c.rigs.join(", ")})` : c.name,
+    })),
     [collectors]
   );
 
@@ -405,6 +409,27 @@ export default function ToolsScreen() {
     [setSelectedRig]
   );
 
+  const handleRigNumberChange = useCallback(
+    (text: string) => {
+      const cleaned = text.replace(/[^0-9]/g, "");
+      setRigNumberInput(cleaned);
+      if (cleaned.length > 0) {
+        const rigId = `EGO-PROD-${cleaned}`;
+        setSelectedRig(rigId);
+      }
+    },
+    [setSelectedRig]
+  );
+
+  useEffect(() => {
+    if (selectedRig && selectedRig.startsWith("EGO-PROD-")) {
+      const num = selectedRig.replace("EGO-PROD-", "");
+      if (num !== rigNumberInput) {
+        setRigNumberInput(num);
+      }
+    }
+  }, [selectedRig]);
+
   const handleAddAnnouncement = useCallback(() => {
     const text = newAnnouncement.trim();
     if (!text) return;
@@ -473,19 +498,56 @@ export default function ToolsScreen() {
                   <Text style={[styles.settingLabel, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
                     Your Rig
                   </Text>
-                  {rigOptions.length > 0 ? (
-                    <SelectPicker
-                      label=""
-                      options={rigOptions}
-                      selectedValue={selectedRig}
-                      onValueChange={handleSelectRig}
-                      placeholder="Select your rig..."
-                      testID="rig-picker"
+                  <View style={styles.rigInputRow}>
+                    <Text style={[styles.rigPrefix, { color: colors.textMuted }]}>EGO-PROD-</Text>
+                    <TextInput
+                      style={[
+                        styles.rigNumberInput,
+                        {
+                          backgroundColor: colors.bgInput,
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                        },
+                      ]}
+                      value={rigNumberInput}
+                      onChangeText={handleRigNumberChange}
+                      placeholder="#"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      testID="rig-number-input"
                     />
-                  ) : (
-                    <Text style={[styles.noRigText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
-                      No rigs assigned to this collector
-                    </Text>
+                  </View>
+                  {rigOptions.length > 0 && (
+                    <View style={styles.rigChipsRow}>
+                      {rigOptions.map((r) => (
+                        <TouchableOpacity
+                          key={r.value}
+                          style={[
+                            styles.rigChip,
+                            {
+                              backgroundColor: r.value === selectedRig ? colors.accentSoft : colors.bgInput,
+                              borderColor: r.value === selectedRig ? colors.accent : colors.border,
+                            },
+                          ]}
+                          onPress={() => {
+                            handleSelectRig(r.value);
+                            const num = r.value.replace("EGO-PROD-", "");
+                            setRigNumberInput(num);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.rigChipText,
+                              { color: r.value === selectedRig ? colors.accent : colors.textSecondary },
+                            ]}
+                          >
+                            {r.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   )}
                 </View>
               </View>
@@ -902,6 +964,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: "italic" as const,
     paddingVertical: 4,
+  },
+  rigInputRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+  },
+  rigPrefix: {
+    fontSize: 15,
+    fontWeight: "500" as const,
+  },
+  rigNumberInput: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 17,
+    fontWeight: "700" as const,
+    width: 56,
+    textAlign: "center" as const,
+  },
+  rigChipsRow: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 6,
+    marginTop: 8,
+  },
+  rigChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  rigChipText: {
+    fontSize: 11,
+    fontWeight: "600" as const,
   },
   profileBadge: {
     flexDirection: "row" as const,
