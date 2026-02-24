@@ -200,12 +200,6 @@ export default function TabLayout() {
       <Tabs.Screen name="live" options={{ title: "LIVE" }} />
       <Tabs.Screen name="stats" options={{ title: "Stats" }} />
       <Tabs.Screen name="tools" options={{ title: "Tools" }} />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          href: null,
-        }}
-      />
     </Tabs>
   );
 }
