@@ -731,7 +731,7 @@ function API_weekStart_(d0) {
 }
 
 function API_getAdminWeekStart_(ss) {
-  var sheet = ss.getSheetByName("ADMIN_DASHBOARD");
+  var sheet = ss.getSheetByName("DASH_CACHE");
   if (!sheet) return null;
   try {
     var hm = API_getHeaderMap_(sheet);
@@ -768,7 +768,7 @@ function API_cleanTaskName_(v) {
  * ========================================================================= */
 
 function API_getRecollections_(ss) {
-  var sheet = ss.getSheetByName("ADMIN_DASHBOARD");
+  var sheet = ss.getSheetByName("DASH_CACHE");
   if (!sheet) return [];
   var lastRow = sheet.getLastRow();
   if (lastRow < 28) return [];
@@ -833,9 +833,9 @@ function API_getFullLog_(ss, collector) {
  * ========================================================================= */
 
 function API_getCATaggedWeekly_(ss) {
-  var sh = ss.getSheetByName("CA_Tagged");
+  var sh = ss.getSheetByName("CA_TAGGED");
   if (!sh) {
-    var sh2 = ss.getSheetByName("CA_cache");
+    var sh2 = ss.getSheetByName("CA_PLUS");
     if (!sh2) return [];
     sh = sh2;
   }
