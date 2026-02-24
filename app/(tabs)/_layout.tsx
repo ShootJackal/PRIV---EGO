@@ -165,7 +165,7 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
                   <View
                     style={[
                       barStyles.liveBlip,
-                      { backgroundColor: colors.complete },
+                      { backgroundColor: colors.terminalGreen },
                     ]}
                   />
                 )}
