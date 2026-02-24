@@ -145,7 +145,6 @@ export default function AppLoadingScreen({ onFinish }: Props) {
             resizeMode="contain"
           />
         </View>
-        <Text style={s.logoName}>TaskFlow</Text>
         <Text style={s.logoSub}>EGO COLLECTION INTELLIGENCE</Text>
       </Animated.View>
 
@@ -235,25 +234,15 @@ const s = StyleSheet.create({
     gap: 10,
   },
   logoIconBox: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    overflow: "hidden",
     shadowColor: "#9B7BF7",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
     elevation: 24,
   },
   logoIcon: {
-    width: 88,
-    height: 88,
-  },
-  logoName: {
-    color: "#EEE8FF",
-    fontSize: 30,
-    fontFamily: "Lexend_700Bold",
-    letterSpacing: -0.5,
+    width: 280,
+    height: 80,
   },
   logoSub: {
     color: "#5C5475",

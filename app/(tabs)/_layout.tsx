@@ -194,13 +194,12 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
 function TaskFlowHeader() {
   const { colors, isDark } = useTheme();
   return (
-    <View style={[hStyles.wrap, { backgroundColor: colors.bg, borderBottomColor: colors.borderLight }]}>
+    <View style={[hStyles.wrap, { backgroundColor: colors.bg }]}>
       <Image
         source={require("../../assets/images/taskflow-logo.png")}
-        style={hStyles.logo}
+        style={[hStyles.logo, isDark && { tintColor: undefined }]}
         resizeMode="contain"
       />
-      <Text style={[hStyles.name, { color: colors.textPrimary }]}>TaskFlow</Text>
     </View>
   );
 }
@@ -356,17 +355,10 @@ const hStyles = StyleSheet.create({
   wrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
     paddingVertical: 2,
   },
   logo: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-  },
-  name: {
-    fontSize: 18,
-    fontFamily: "Lexend_700Bold",
-    letterSpacing: -0.3,
+    width: 140,
+    height: 36,
   },
 });
