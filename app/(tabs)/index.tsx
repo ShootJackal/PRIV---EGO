@@ -42,6 +42,8 @@ export default function DashboardScreen() {
     openTasks,
     todayLog,
     isLoadingCollectors,
+    collectorsError,
+    tasksError,
     isLoadingTasks,
     isLoadingLog,
     isSubmitting,
@@ -226,6 +228,20 @@ export default function DashboardScreen() {
             <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
               <AlertCircle size={15} color={colors.cancel} />
               <Text style={[styles.noticeText, { color: colors.cancel }]}>{submitError}</Text>
+            </View>
+          )}
+
+          {!!collectorsError && (
+            <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
+              <AlertCircle size={15} color={colors.cancel} />
+              <Text style={[styles.noticeText, { color: colors.cancel }]}>Collectors failed: {collectorsError}</Text>
+            </View>
+          )}
+
+          {!!tasksError && (
+            <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
+              <AlertCircle size={15} color={colors.cancel} />
+              <Text style={[styles.noticeText, { color: colors.cancel }]}>Tasks failed: {tasksError}</Text>
             </View>
           )}
 

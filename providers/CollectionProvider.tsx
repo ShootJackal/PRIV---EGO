@@ -588,6 +588,8 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
 
     isAdmin,
     isLoadingCollectors: collectorQuery.isLoading,
+    collectorsError: collectorQuery.error?.message ?? null,
+    tasksError: taskQuery.error?.message ?? null,
     isLoadingTasks: taskQuery.isLoading,
     isLoadingLog: todayLogQuery.isLoading,
     isSubmitting: submitMutation.isPending,
