@@ -4,7 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { View, Text, StyleSheet, Animated, Platform, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Animated, Platform, Dimensions, TouchableOpacity } from "react-native";
 import { ThemeProvider, useTheme } from "../providers/ThemeProvider";
 import { CollectionProvider } from "../providers/CollectionProvider";
 import {
@@ -44,6 +44,14 @@ const BOOT_MESSAGES_POOL = [
   "Bribing the Wi-Fi gods...",
 ];
 
+const SYSTEM_LINES = [
+  "TASKFLOW SYSTEM v3.0.1",
+  "Initializing modules...",
+  "Loading collection engine...",
+  "Connecting to data pipeline...",
+  "Authenticating session...",
+];
+
 function pickRandomMessages(count: number): string[] {
   const shuffled = [...BOOT_MESSAGES_POOL].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
@@ -51,27 +59,30 @@ function pickRandomMessages(count: number): string[] {
 
 function BootSequence({ onComplete }: { onComplete: () => void }) {
   const { colors, isDark } = useTheme();
-  const [bootLines, setBootLines] = useState<string[]>([]);
-  const [typingLine, setTypingLine] = useState("");
-  const [typingIndex, setTypingIndex] = useState(0);
-  const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
-  const [phase, setPhase] = useState<"init" | "typing" | "ready" | "fade">("init");
+  const [displayedLines, setDisplayedLines] = useState<string[]>([]);
+  const [currentLineText, setCurrentLineText] = useState("");
+  const [phase, setPhase] = useState<"booting" | "ready">("booting");
   const fadeOut = useRef(new Animated.Value(1)).current;
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const logoScale = useRef(new Animated.Value(0.7)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const progressWidth = useRef(new Animated.Value(0)).current;
   const cursorBlink = useRef(new Animated.Value(1)).current;
+  const enterBtnScale = useRef(new Animated.Value(0)).current;
+  const enterGlow = useRef(new Animated.Value(0.4)).current;
+  const progressWidth = useRef(new Animated.Value(0)).current;
 
-  const messages = useRef(pickRandomMessages(3)).current;
-  const systemLines = useRef([
-    "EGO SYSTEM v2.4.1",
-    "Initializing modules...",
+  const allMessages = useRef([
+    ...SYSTEM_LINES,
+    ...pickRandomMessages(5),
+    "Systems online. Welcome to TaskFlow.",
   ]).current;
+
+  const currentLineIndex = useRef(0);
+  const charIndex = useRef(0);
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(logoScale, { toValue: 1, speed: 12, bounciness: 8, useNativeDriver: true }),
-      Animated.timing(logoOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(logoScale, { toValue: 1, speed: 10, bounciness: 6, useNativeDriver: true }),
+      Animated.timing(logoOpacity, { toValue: 1, duration: 800, useNativeDriver: true }),
     ]).start();
 
     const blink = Animated.loop(
@@ -82,104 +93,135 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
     );
     blink.start();
 
-    const initTimer = setTimeout(() => {
-      setPhase("typing");
-      setBootLines(systemLines);
-    }, 800);
-
     return () => {
-      clearTimeout(initTimer);
       blink.stop();
     };
-  }, [logoScale, logoOpacity, cursorBlink, systemLines]);
+  }, [logoScale, logoOpacity, cursorBlink]);
 
   useEffect(() => {
-    if (phase !== "typing") return;
-    if (currentMsgIndex >= messages.length) {
-      setPhase("ready");
-      return;
-    }
+    if (phase !== "booting") return;
 
-    const fullMsg = messages[currentMsgIndex];
-    if (typingIndex < fullMsg.length) {
-      const speed = 25 + Math.random() * 20;
-      const timer = setTimeout(() => {
-        setTypingLine(fullMsg.slice(0, typingIndex + 1));
-        setTypingIndex(typingIndex + 1);
-      }, speed);
-      return () => clearTimeout(timer);
-    } else {
-      const timer = setTimeout(() => {
-        setBootLines((prev) => [...prev, `$ ${fullMsg}`]);
-        setTypingLine("");
-        setTypingIndex(0);
-        setCurrentMsgIndex(currentMsgIndex + 1);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, currentMsgIndex, typingIndex, messages]);
+    const typeChar = () => {
+      if (currentLineIndex.current >= allMessages.length) {
+        setPhase("ready");
+        return;
+      }
+
+      const fullLine = allMessages[currentLineIndex.current];
+
+      if (charIndex.current < fullLine.length) {
+        charIndex.current += 1;
+        setCurrentLineText(fullLine.slice(0, charIndex.current));
+
+        const progressPct = ((currentLineIndex.current + charIndex.current / fullLine.length) / allMessages.length) * 100;
+        Animated.timing(progressWidth, {
+          toValue: progressPct,
+          duration: 50,
+          useNativeDriver: false,
+        }).start();
+
+        const baseSpeed = 35;
+        const variance = Math.random() * 30;
+        setTimeout(typeChar, baseSpeed + variance);
+      } else {
+        const isSystem = currentLineIndex.current < SYSTEM_LINES.length;
+        const prefix = isSystem ? "▸ " : "$ ";
+        setDisplayedLines((prev) => [...prev.slice(-8), `${prefix}${fullLine}`]);
+        setCurrentLineText("");
+        charIndex.current = 0;
+        currentLineIndex.current += 1;
+
+        const pauseTime = isSystem ? 200 : 400;
+        setTimeout(typeChar, pauseTime);
+      }
+    };
+
+    const startDelay = setTimeout(typeChar, 1000);
+    return () => clearTimeout(startDelay);
+  }, [phase, allMessages, progressWidth]);
 
   useEffect(() => {
     if (phase !== "ready") return;
 
     Animated.timing(progressWidth, {
       toValue: 100,
-      duration: 1200,
+      duration: 400,
       useNativeDriver: false,
     }).start();
 
-    const readyTimer = setTimeout(() => {
-      setBootLines((prev) => [...prev, "$ Systems online. Welcome to EGO."]);
-      setPhase("fade");
-    }, 600);
+    Animated.spring(enterBtnScale, {
+      toValue: 1,
+      speed: 10,
+      bounciness: 8,
+      useNativeDriver: true,
+      delay: 300,
+    }).start();
 
-    return () => clearTimeout(readyTimer);
-  }, [phase, progressWidth]);
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(enterGlow, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(enterGlow, { toValue: 0.4, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    glow.start();
 
-  useEffect(() => {
-    if (phase !== "fade") return;
+    return () => glow.stop();
+  }, [phase, enterBtnScale, enterGlow, progressWidth]);
 
-    const fadeTimer = setTimeout(() => {
-      Animated.timing(fadeOut, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        onComplete();
-      });
-    }, 800);
+  const handleEnter = useCallback(() => {
+    Animated.timing(fadeOut, {
+      toValue: 0,
+      duration: 400,
+      useNativeDriver: true,
+    }).start(() => {
+      onComplete();
+    });
+  }, [fadeOut, onComplete]);
 
-    return () => clearTimeout(fadeTimer);
-  }, [phase, fadeOut, onComplete]);
-
-  const accentColor = isDark ? '#E03030' : '#2563EB';
-  const dimColor = isDark ? '#444' : '#999';
-  const bgColor = isDark ? '#0A0A0A' : '#FAFAF0';
+  const accentColor = colors.accent;
+  const dimColor = colors.terminalDim;
+  const bgColor = isDark ? '#0A0A0C' : '#FAF7F0';
 
   return (
     <Animated.View style={[bootStyles.container, { backgroundColor: bgColor, opacity: fadeOut }]}>
       <Animated.View style={[bootStyles.logoWrap, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
-        <Text style={[bootStyles.logoText, { color: accentColor, fontFamily: FONT_MONO }]}>EGO</Text>
-        <Text style={[bootStyles.logoSub, { color: dimColor, fontFamily: FONT_MONO }]}>COLLECTION SYSTEM</Text>
+        <Text style={[bootStyles.logoText, { color: accentColor, fontFamily: FONT_MONO }]}>
+          TASKFLOW
+        </Text>
+        <Text style={[bootStyles.logoSub, { color: dimColor, fontFamily: FONT_MONO }]}>
+          COLLECTION SYSTEM
+        </Text>
       </Animated.View>
 
       <View style={bootStyles.terminalArea}>
-        {bootLines.map((line, idx) => (
-          <Text key={`boot_${idx}`} style={[bootStyles.termLine, { color: idx < 2 ? dimColor : accentColor, fontFamily: FONT_MONO }]}>
-            {line}
-          </Text>
-        ))}
-        {typingLine !== "" && (
+        {displayedLines.map((line, idx) => {
+          const isSystem = line.startsWith("▸");
+          return (
+            <Text
+              key={`boot_${idx}`}
+              style={[
+                bootStyles.termLine,
+                {
+                  color: isSystem ? dimColor : accentColor,
+                  fontFamily: FONT_MONO,
+                },
+              ]}
+            >
+              {line}
+            </Text>
+          );
+        })}
+        {currentLineText !== "" && (
           <View style={bootStyles.typingRow}>
             <Text style={[bootStyles.termLine, { color: colors.terminalGreen, fontFamily: FONT_MONO }]}>
-              $ {typingLine}
+              $ {currentLineText}
             </Text>
             <Animated.Text style={[bootStyles.cursor, { color: colors.terminalGreen, opacity: cursorBlink, fontFamily: FONT_MONO }]}>
               _
             </Animated.Text>
           </View>
         )}
-        {typingLine === "" && phase === "typing" && (
+        {currentLineText === "" && phase === "booting" && (
           <Animated.Text style={[bootStyles.cursor, { color: colors.terminalGreen, opacity: cursorBlink, fontFamily: FONT_MONO }]}>
             $ _
           </Animated.Text>
@@ -187,7 +229,7 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
       </View>
 
       <View style={bootStyles.progressWrap}>
-        <View style={[bootStyles.progressTrack, { backgroundColor: isDark ? '#222' : '#E0DCCF' }]}>
+        <View style={[bootStyles.progressTrack, { backgroundColor: isDark ? '#1E1E24' : '#E0DCD0' }]}>
           <Animated.View
             style={[
               bootStyles.progressFill,
@@ -202,9 +244,36 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
           />
         </View>
         <Text style={[bootStyles.progressLabel, { color: dimColor, fontFamily: FONT_MONO }]}>
-          {phase === "ready" || phase === "fade" ? "READY" : "LOADING"}
+          {phase === "ready" ? "READY" : "LOADING"}
         </Text>
       </View>
+
+      {phase === "ready" && (
+        <Animated.View style={[bootStyles.enterWrap, { transform: [{ scale: enterBtnScale }] }]}>
+          <Animated.View
+            style={[
+              bootStyles.enterGlow,
+              {
+                backgroundColor: accentColor,
+                opacity: enterGlow,
+              },
+            ]}
+          />
+          <TouchableOpacity
+            style={[bootStyles.enterBtn, {
+              backgroundColor: accentColor,
+              shadowColor: accentColor,
+            }]}
+            onPress={handleEnter}
+            activeOpacity={0.8}
+            testID="enter-system-btn"
+          >
+            <Text style={[bootStyles.enterText, { color: '#FFFFFF', fontFamily: FONT_MONO }]}>
+              ENTER SYSTEM
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
@@ -221,19 +290,19 @@ const bootStyles = StyleSheet.create({
     marginBottom: 48,
   },
   logoText: {
-    fontSize: 52,
+    fontSize: 36,
     fontWeight: "900" as const,
-    letterSpacing: 12,
+    letterSpacing: 8,
   },
   logoSub: {
-    fontSize: 10,
+    fontSize: 9,
     letterSpacing: 4,
-    marginTop: 6,
+    marginTop: 8,
   },
   terminalArea: {
-    width: Dimensions.get("window").width * 0.8,
-    maxWidth: 360,
-    minHeight: 120,
+    width: Dimensions.get("window").width * 0.85,
+    maxWidth: 380,
+    minHeight: 160,
     paddingBottom: 8,
   },
   termLine: {
@@ -269,6 +338,32 @@ const bootStyles = StyleSheet.create({
   progressLabel: {
     fontSize: 9,
     letterSpacing: 2,
+  },
+  enterWrap: {
+    marginTop: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  enterGlow: {
+    position: "absolute",
+    width: 220,
+    height: 56,
+    borderRadius: 28,
+    opacity: 0.3,
+  },
+  enterBtn: {
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 28,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  enterText: {
+    fontSize: 13,
+    fontWeight: "800" as const,
+    letterSpacing: 3,
   },
 });
 

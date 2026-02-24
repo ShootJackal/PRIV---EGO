@@ -8,9 +8,10 @@ import {
   Dimensions,
   Platform,
   TouchableOpacity,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RefreshCw } from "lucide-react-native";
+import { RefreshCw, Sun, Moon, BookOpen, Trophy, X } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
@@ -85,19 +86,19 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
     });
   }, [lines]);
 
-  const termAccent = colors.terminal;
+  const termAccent = colors.accent;
   const termDim = colors.terminalDim;
 
   return (
     <View style={cmdStyles.feed}>
       <View style={[cmdStyles.headerBar, { borderBottomColor: termDim + '30' }]}>
         <View style={cmdStyles.dotRow}>
-          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#E03030' : '#FF5F57' }]} />
-          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#F0A020' : '#FEBC2E' }]} />
-          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#30CC78' : '#28C840' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#F87171' : '#FF5F57' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#FBBF24' : '#FEBC2E' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#34D399' : '#28C840' }]} />
         </View>
         <Text style={[cmdStyles.headerTitle, { color: termDim, fontFamily: FONT_MONO }]}>
-          ego@system ~ live-feed
+          taskflow@system ~ live-feed
         </Text>
         <View style={cmdStyles.headerRight}>
           <View style={[cmdStyles.sessionDot, { backgroundColor: colors.terminalGreen }]} />
@@ -115,7 +116,7 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
           line.type === "header" ? termAccent :
           line.type === "cmd" ? colors.terminalGreen :
           line.type === "divider" ? termDim :
-          line.type === "label" ? (isDark ? '#F0A020' : '#7A6B00') :
+          line.type === "label" ? (isDark ? '#FBBF24' : '#9A7B00') :
           line.type === "empty" ? "transparent" :
           line.color ?? colors.textPrimary;
 
@@ -171,9 +172,27 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
   );
 }
 
-function AnnouncementTicker({ items, colors, isDark }: { items: string[]; colors: ReturnType<typeof useTheme>["colors"]; isDark: boolean }) {
+interface TickerSegment {
+  label: string;
+  color: string;
+  bgColor: string;
+  items: string[];
+  speed: number;
+}
+
+function DynamicTicker({ segments }: { segments: TickerSegment[] }) {
+  const { colors } = useTheme();
+  const [activeIndex, setActiveIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (segments.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % segments.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [segments.length]);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -186,47 +205,46 @@ function AnnouncementTicker({ items, colors, isDark }: { items: string[]; colors
     return () => pulse.stop();
   }, [pulseAnim]);
 
+  const seg = segments[activeIndex] ?? segments[0];
+  if (!seg) return null;
+
+  const tickerText = seg.items.join("     ·     ");
+
   useEffect(() => {
-    if (!items.length) return;
-    const totalWidth = items.join("    ·    ").length * 7.5 + 300;
+    const totalWidth = tickerText.length * 7 + 400;
     scrollX.setValue(SCREEN_WIDTH);
 
+    const duration = Math.max(totalWidth * (seg.speed || 28), 6000);
     const anim = Animated.loop(
       Animated.timing(scrollX, {
         toValue: -totalWidth,
-        duration: Math.max(totalWidth * 28, 8000),
+        duration,
         useNativeDriver: true,
       })
     );
     anim.start();
     return () => anim.stop();
-  }, [items, scrollX]);
-
-  if (!items.length) return null;
-
-  const tickerText = items.join("     ·     ");
-  const alertColor = isDark ? '#E03030' : '#DC2626';
-  const hasRecollects = items.some(i => !i.includes("No pending"));
+  }, [tickerText, scrollX, seg.speed]);
 
   return (
     <View style={[tickerStyles.container, {
-      backgroundColor: isDark ? '#1A0808' : '#FFF5F5',
-      borderTopColor: isDark ? '#3D1818' : '#FECACA',
-      borderBottomColor: isDark ? '#3D1818' : '#FECACA',
+      backgroundColor: seg.bgColor,
+      borderTopColor: seg.color + '30',
+      borderBottomColor: seg.color + '30',
     }]}>
       <View style={tickerStyles.pillSection}>
-        <Animated.View style={[tickerStyles.alertDot, { backgroundColor: alertColor, opacity: hasRecollects ? pulseAnim : 0.3 }]} />
-        <Text style={[tickerStyles.pillText, { color: alertColor, fontFamily: FONT_MONO }]}>
-          {hasRecollects ? "RECOLLECT" : "CLEAR"}
+        <Animated.View style={[tickerStyles.alertDot, { backgroundColor: seg.color, opacity: pulseAnim }]} />
+        <Text style={[tickerStyles.pillText, { color: seg.color, fontFamily: FONT_MONO }]}>
+          {seg.label}
         </Text>
       </View>
-      <View style={tickerStyles.dividerLine} />
+      <View style={[tickerStyles.dividerLine, { backgroundColor: seg.color + '30' }]} />
       <View style={tickerStyles.scrollArea}>
         <Animated.Text
           style={[
             tickerStyles.text,
             {
-              color: hasRecollects ? alertColor : colors.textMuted,
+              color: seg.color,
               fontFamily: FONT_MONO,
               transform: [{ translateX: scrollX }],
             },
@@ -240,14 +258,119 @@ function AnnouncementTicker({ items, colors, isDark }: { items: string[]; colors
   );
 }
 
-export default function LiveScreen() {
+function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors, isDark } = useTheme();
+
+  const steps = [
+    { num: "01", title: "Select Your Profile", desc: "Go to Tools → My Profile and pick your name & rig." },
+    { num: "02", title: "Assign a Task", desc: "Head to Collect, choose a task, and hit Assign." },
+    { num: "03", title: "Complete or Log Hours", desc: "Track your progress and mark tasks Done when finished." },
+    { num: "04", title: "Check Your Stats", desc: "Visit Stats to see your performance and leaderboard rank." },
+  ];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={guideStyles.overlay}>
+        <View style={[guideStyles.card, {
+          backgroundColor: colors.bgCard,
+          borderColor: colors.border,
+          shadowColor: colors.shadow,
+        }]}>
+          <View style={guideStyles.cardHeader}>
+            <Text style={[guideStyles.cardTitle, { color: colors.accent, fontFamily: FONT_MONO }]}>
+              QUICK START
+            </Text>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+              <X size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          {steps.map((step, idx) => (
+            <View key={step.num} style={[guideStyles.step, idx < steps.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
+              <View style={[guideStyles.stepNum, { backgroundColor: colors.accentSoft }]}>
+                <Text style={[guideStyles.stepNumText, { color: colors.accent, fontFamily: FONT_MONO }]}>
+                  {step.num}
+                </Text>
+              </View>
+              <View style={guideStyles.stepContent}>
+                <Text style={[guideStyles.stepTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+                  {step.title}
+                </Text>
+                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary, fontFamily: "Lexend_400Regular" }]}>
+                  {step.desc}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function TaskFlowTitle({ colors, isDark }: { colors: any; isDark: boolean }) {
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.5, duration: 2000, useNativeDriver: true }),
+      ])
+    );
+    glow.start();
+    return () => glow.stop();
+  }, [glowAnim]);
+
+  const letters = "TASKFLOW".split("");
+
+  return (
+    <View style={titleStyles.wrap}>
+      <View style={titleStyles.letterRow}>
+        {letters.map((letter, idx) => (
+          <Animated.Text
+            key={`letter_${idx}`}
+            style={[
+              titleStyles.letter,
+              {
+                color: colors.accent,
+                fontFamily: FONT_MONO,
+                opacity: idx === 4 ? glowAnim : 1,
+              },
+            ]}
+          >
+            {letter}
+          </Animated.Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const titleStyles = StyleSheet.create({
+  wrap: {
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  letterRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  letter: {
+    fontSize: 22,
+    fontWeight: "900" as const,
+    letterSpacing: 2,
+  },
+});
+
+export default function LiveScreen() {
+  const { colors, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const { configured, collectors, todayLog, selectedCollectorName } = useCollection();
 
   const [liveLines, setLiveLines] = useState<TerminalLine[]>([]);
   const [isOnline, setIsOnline] = useState(false);
   const [isFeeding, setIsFeeding] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
   const lineIndexRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -322,6 +445,52 @@ export default function LiveScreen() {
   }, []);
 
   const stats = statsQuery.data;
+
+  const tickerSegments = useMemo((): TickerSegment[] => {
+    const segs: TickerSegment[] = [];
+
+    segs.push({
+      label: "ALERT",
+      color: isDark ? colors.alertYellow : colors.alertYellow,
+      bgColor: isDark ? colors.alertYellowBg : colors.alertYellowBg,
+      items: ["Welcome to TaskFlow", "Check your daily assignments", "Stay on target"],
+      speed: 30,
+    });
+
+    const hasRecollects = recollectItems.length > 0;
+    segs.push({
+      label: "RECOLLECT",
+      color: isDark ? colors.recollectRed : colors.recollectRed,
+      bgColor: isDark ? colors.recollectRedBg : colors.recollectRedBg,
+      items: hasRecollects ? recollectItems : ["No pending recollections"],
+      speed: hasRecollects ? 20 : 30,
+    });
+
+    const statsItems: string[] = [];
+    if (stats) {
+      statsItems.push(`Completion: ${stats.completionRate.toFixed(0)}%`);
+      statsItems.push(`Hours logged: ${stats.totalLoggedHours.toFixed(1)}h`);
+      statsItems.push(`Tasks done: ${stats.totalCompleted}`);
+      if (stats.topTasks && stats.topTasks.length > 0) {
+        const top5 = stats.topTasks.slice(0, 5);
+        top5.forEach((t, i) => {
+          statsItems.push(`#${i + 1} ${t.name} (${t.hours}h)`);
+        });
+      }
+    } else {
+      statsItems.push("Loading stats...");
+    }
+
+    segs.push({
+      label: "STATS",
+      color: isDark ? colors.statsGreen : colors.statsGreen,
+      bgColor: isDark ? colors.statsGreenBg : colors.statsGreenBg,
+      items: statsItems,
+      speed: 35,
+    });
+
+    return segs;
+  }, [isDark, colors, recollectItems, stats]);
 
   const allLines = useMemo((): TerminalLine[] => {
     const lines: TerminalLine[] = [];
@@ -440,42 +609,77 @@ export default function LiveScreen() {
     recollectionsQuery.refetch();
   }, [statsQuery, todayLogQuery, recollectionsQuery]);
 
+  const handleToggleTheme = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleTheme();
+  }, [toggleTheme]);
+
+  const handleShowGuide = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowGuide(true);
+  }, []);
+
   const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
-  const bgMain = isDark ? '#0E0E0E' : '#FAFAF0';
+  const bgMain = colors.bg;
 
   return (
     <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
-      <View style={styles.titleRow}>
-        <Text style={[styles.appName, { color: colors.accent, fontFamily: FONT_MONO }]}>EGO</Text>
-        <View style={styles.titleRight}>
-          <View style={[
-            styles.livePill,
-            {
-              backgroundColor: isOnline ? livePillColor + '1A' : colors.cancel + '1A',
-              borderColor: isOnline ? livePillColor + '44' : colors.cancel + '44',
-            }
-          ]}>
-            <View style={[styles.statusDot, {
-              backgroundColor: isOnline ? livePillColor : colors.cancel,
-            }]} />
-            <Text style={[styles.liveText, {
-              color: isOnline ? livePillColor : colors.cancel,
-              fontFamily: FONT_MONO,
-            }]}>
-              {isOnline ? "LIVE" : "OFFLINE"}
-            </Text>
-          </View>
-          <Text style={[styles.rigCount, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
-            {totalRigCount} RIGS
-          </Text>
+      <View style={styles.topBar}>
+        <TaskFlowTitle colors={colors} isDark={isDark} />
+        <View style={styles.topBarActions}>
+          <TouchableOpacity
+            style={[styles.topBarBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={handleToggleTheme}
+            activeOpacity={0.7}
+            testID="theme-toggle-live"
+          >
+            {isDark ? <Sun size={16} color="#FBBF24" /> : <Moon size={16} color={colors.textSecondary} />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.topBarBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={handleShowGuide}
+            activeOpacity={0.7}
+            testID="guide-btn"
+          >
+            <BookOpen size={16} color={colors.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.topBarBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            activeOpacity={0.7}
+            testID="ranks-btn"
+          >
+            <Trophy size={16} color={colors.accent} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      <AnnouncementTicker
-        items={recollectItems.length > 0 ? recollectItems : ["No pending recollections"]}
-        colors={colors}
-        isDark={isDark}
-      />
+      <View style={styles.statusRow}>
+        <View style={[
+          styles.livePill,
+          {
+            backgroundColor: isOnline ? livePillColor + '1A' : colors.cancel + '1A',
+            borderColor: isOnline ? livePillColor + '44' : colors.cancel + '44',
+          }
+        ]}>
+          <View style={[styles.statusDot, {
+            backgroundColor: isOnline ? livePillColor : colors.cancel,
+          }]} />
+          <Text style={[styles.liveText, {
+            color: isOnline ? livePillColor : colors.cancel,
+            fontFamily: FONT_MONO,
+          }]}>
+            {isOnline ? "LIVE" : "OFFLINE"}
+          </Text>
+        </View>
+        <Text style={[styles.rigCount, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+          {totalRigCount} RIGS
+        </Text>
+      </View>
+
+      <DynamicTicker segments={tickerSegments} />
 
       <ScrollView
         style={styles.terminalScroll}
@@ -483,16 +687,16 @@ export default function LiveScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.terminalWindow, {
-          backgroundColor: isDark ? '#0A0A0A' : '#FFFFF8',
-          borderColor: isDark ? '#1E1E1E' : '#E0DCCF',
+          backgroundColor: isDark ? '#0A0A0C' : '#FFFEF8',
+          borderColor: isDark ? '#1E1E24' : '#E0DCD0',
         }]}>
           <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} />
         </View>
 
         <TouchableOpacity
           style={[styles.refreshBtn, {
-            backgroundColor: isDark ? '#1A1A1A' : '#F0EDE2',
-            borderColor: isDark ? '#2A2A2A' : '#E0DCCF',
+            backgroundColor: colors.bgCard,
+            borderColor: colors.border,
           }]}
           onPress={handleRefresh}
           activeOpacity={0.7}
@@ -503,9 +707,71 @@ export default function LiveScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <GuideModal visible={showGuide} onClose={() => setShowGuide(false)} />
     </View>
   );
 }
+
+const guideStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: "800" as const,
+    letterSpacing: 3,
+  },
+  step: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    paddingVertical: 14,
+  },
+  stepNum: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNumText: {
+    fontSize: 11,
+    fontWeight: "800" as const,
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 14,
+    marginBottom: 3,
+  },
+  stepDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+});
 
 const cmdStyles = StyleSheet.create({
   feed: {
@@ -593,7 +859,6 @@ const tickerStyles = StyleSheet.create({
   dividerLine: {
     width: 1,
     height: 20,
-    backgroundColor: "rgba(128,128,128,0.2)",
   },
   scrollArea: {
     flex: 1,
@@ -613,22 +878,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  topBar: {
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 8,
+    paddingBottom: 4,
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: "900" as const,
-    letterSpacing: 6,
+  topBarActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+    marginTop: 4,
   },
-  titleRight: {
-    alignItems: "flex-end",
-    gap: 3,
+  topBarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
   },
   livePill: {
     flexDirection: "row",
@@ -653,7 +928,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: "600" as const,
-    marginTop: 2,
   },
   terminalScroll: {
     flex: 1,
