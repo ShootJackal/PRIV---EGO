@@ -7,19 +7,36 @@ import {
   Animated,
   Dimensions,
   Platform,
-  TouchableOpacity,
-  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Sun, Moon, BookOpen, ChevronRight, Trophy, Radio, Send, Wrench, BarChart3 } from "lucide-react-native";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTodayLog, fetchCollectorStats, fetchRecollections, isApiConfigured } from "../../../services/googleSheets";
-import { router } from "expo-router";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
+
+const SF_KNOWN_NAMES = new Set(["tony a", "veronika t", "travis b"]);
+
+const FUNNY_LOADING_LINES = [
+  "Booting EGO intelligence core...",
+  "Making sure both hands are in frame...",
+  "Raising daily collection hours to 7hrs...",
+  "Making EGO RIGs heavier...",
+  "Calibrating the vibes...",
+  "Polishing camera lenses remotely...",
+  "Convincing rigs to cooperate...",
+  "Asking Redash nicely for data...",
+  "Untangling USB cables mentally...",
+  "Checking if Travis remembered his badge...",
+  "Syncing with the mothership...",
+  "Deploying collection drones... jk...",
+  "Running rig diagnostics... beep boop...",
+  "Warming up the data pipeline...",
+  "Counting hours... carry the 1...",
+];
 
 function normalizeCollectorName(name: string): string {
   return name.replace(/\s*\(.*?\)\s*$/g, "").trim();
@@ -29,8 +46,6 @@ function normForMatch(name: string): string {
   return normalizeCollectorName(name).toLowerCase().replace(/\.$/, "").trim();
 }
 
-const SF_KNOWN_NAMES = new Set(["tony a", "veronika t", "travis b"]);
-
 interface TerminalLine {
   id: string;
   text: string;
@@ -38,10 +53,11 @@ interface TerminalLine {
   color?: string;
 }
 
-function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalLine[]; isLoading: boolean; onHeaderPress?: () => void }) {
+function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoading: boolean }) {
   const { colors, isDark } = useTheme();
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({});
   const cursorAnim = useRef(new Animated.Value(0)).current;
+  const scanlineAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const blink = Animated.loop(
@@ -53,6 +69,14 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
     blink.start();
     return () => blink.stop();
   }, [cursorAnim]);
+
+  useEffect(() => {
+    const scan = Animated.loop(
+      Animated.timing(scanlineAnim, { toValue: 1, duration: 4000, useNativeDriver: true })
+    );
+    scan.start();
+    return () => scan.stop();
+  }, [scanlineAnim]);
 
   useEffect(() => {
     lines.forEach((line) => {
@@ -67,12 +91,12 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
     });
   }, [lines]);
 
-  const termColor = colors.terminal;
-  const termDim = colors.terminalDim;
+  const termColor = isDark ? '#E03030' : '#2563EB';
+  const termDim = isDark ? '#5A4444' : '#8A8A9A';
 
   return (
     <View style={cmdStyles.feed}>
-      <TouchableOpacity onPress={onHeaderPress} activeOpacity={0.9} style={[cmdStyles.headerBar, { borderBottomColor: termDim + '44' }]}>
+      <View style={[cmdStyles.headerBar, { borderBottomColor: termDim + '44' }]}>
         <View style={cmdStyles.dotRow}>
           <View style={[cmdStyles.dot, { backgroundColor: '#FF5F57' }]} />
           <View style={[cmdStyles.dot, { backgroundColor: '#FEBC2E' }]} />
@@ -81,20 +105,22 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
         <Text style={[cmdStyles.headerTitle, { color: termDim, fontFamily: FONT_MONO }]}>
           ego-system — live
         </Text>
-      </TouchableOpacity>
+      </View>
 
       {lines.map((line) => {
         if (!fadeAnims.current[line.id]) {
           fadeAnims.current[line.id] = new Animated.Value(1);
         }
         const opacity = fadeAnims.current[line.id];
+
         const lineColor =
           line.type === "header" ? termColor :
           line.type === "cmd" ? colors.terminalGreen :
           line.type === "divider" ? termDim :
-          line.type === "label" ? (isDark ? '#FBBF24' : '#B86E00') :
+          line.type === "label" ? (isDark ? '#F0A020' : '#7A6B00') :
           line.type === "empty" ? "transparent" :
           line.color ?? colors.textPrimary;
+
         const prefix =
           line.type === "header" ? "▸ " :
           line.type === "cmd" ? "$ " :
@@ -104,9 +130,14 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
           "  ";
 
         return (
-          <Animated.View key={line.id} style={[cmdStyles.lineWrap, { opacity }]}>
+          <Animated.View
+            key={line.id}
+            style={[cmdStyles.lineWrap, { opacity }]}
+          >
             {line.type === "divider" ? (
-              <Text style={[cmdStyles.divider, { color: termDim, fontFamily: FONT_MONO }]}>{line.text}</Text>
+              <Text style={[cmdStyles.divider, { color: termDim, fontFamily: FONT_MONO }]}>
+                {line.text}
+              </Text>
             ) : (
               <Text
                 style={[
@@ -129,7 +160,10 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
       {isLoading && (
         <View style={cmdStyles.lineWrap}>
           <Animated.Text
-            style={[cmdStyles.line, { color: colors.terminalGreen, fontFamily: FONT_MONO, opacity: cursorAnim }]}
+            style={[
+              cmdStyles.line,
+              { color: colors.terminalGreen, fontFamily: FONT_MONO, opacity: cursorAnim },
+            ]}
           >
             {"  ▌"}
           </Animated.Text>
@@ -139,344 +173,82 @@ function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalL
   );
 }
 
-function LiveClock({ size, showMs }: { size?: 'small' | 'large'; showMs?: boolean }) {
+function LiveClock() {
   const { colors } = useTheme();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), showMs !== false ? 10 : 1000);
+    const id = setInterval(() => setTime(new Date()), 10);
     return () => clearInterval(id);
-  }, [showMs]);
+  }, []);
 
   const hh = String(time.getHours()).padStart(2, "0");
   const mm = String(time.getMinutes()).padStart(2, "0");
   const ss = String(time.getSeconds()).padStart(2, "0");
   const ms = String(Math.floor(time.getMilliseconds() / 10)).padStart(2, "0");
 
-  const isSmall = size === 'small';
-
   return (
-    <Text style={[isSmall ? clockStyles.clockSmall : clockStyles.clock, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>
+    <Text style={[clockStyles.clock, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>
       {hh}:{mm}:{ss}
-      {showMs !== false && (
-        <Text style={[isSmall ? clockStyles.msSmall : clockStyles.ms, { color: colors.textMuted, fontFamily: FONT_MONO }]}>.{ms}</Text>
-      )}
+      <Text style={[clockStyles.ms, { color: colors.textMuted, fontFamily: FONT_MONO }]}>.{ms}</Text>
     </Text>
   );
 }
 
-function getSkyColors(hour: number): { left: string; right: string; accent: string; phase: string } {
-  if (hour < 5) return { left: '#0F172A', right: '#1E1B4B', accent: '#818CF8', phase: 'night' };
-  if (hour < 6.5) return { left: '#1E1B4B', right: '#F97316', accent: '#FB923C', phase: 'dawn' };
-  if (hour < 8) return { left: '#F97316', right: '#FBBF24', accent: '#F59E0B', phase: 'sunrise' };
-  if (hour < 11) return { left: '#38BDF8', right: '#7DD3FC', accent: '#0EA5E9', phase: 'morning' };
-  if (hour < 14) return { left: '#0EA5E9', right: '#38BDF8', accent: '#0284C7', phase: 'midday' };
-  if (hour < 17) return { left: '#38BDF8', right: '#60A5FA', accent: '#3B82F6', phase: 'afternoon' };
-  if (hour < 19) return { left: '#F97316', right: '#EC4899', accent: '#F43F5E', phase: 'sunset' };
-  if (hour < 20.5) return { left: '#7C3AED', right: '#1E1B4B', accent: '#A855F7', phase: 'dusk' };
-  return { left: '#1E1B4B', right: '#0F172A', accent: '#6366F1', phase: 'night' };
-}
-
-function SkyDayTracker() {
-  const { colors, isDark } = useTheme();
-  const [now, setNow] = useState(new Date());
-  const sunSlide = useRef(new Animated.Value(0)).current;
+function TickerScroll({ items, colors, isDark }: { items: string[]; colors: ReturnType<typeof useTheme>["colors"]; isDark: boolean }) {
+  const scrollX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const update = () => setNow(new Date());
-    update();
-    const id = setInterval(update, 30000);
-    return () => clearInterval(id);
-  }, []);
+    if (!items.length) return;
+    const totalWidth = items.join("    ·    ").length * 8 + 200;
+    scrollX.setValue(SCREEN_WIDTH);
 
-  const hour = now.getHours() + now.getMinutes() / 60;
-  const progress = Math.max(0, Math.min(1, (hour - 5) / 17));
-  const sky = getSkyColors(hour);
-  const isDay = hour >= 6 && hour < 19.5;
-
-  useEffect(() => {
-    Animated.spring(sunSlide, {
-      toValue: progress,
-      speed: 4,
-      bounciness: 2,
-      useNativeDriver: false,
-    }).start();
-  }, [progress, sunSlide]);
-
-  const PILL_WIDTH = SCREEN_WIDTH * 0.55;
-  const DOT_SIZE = 14;
-
-  const sliderLeft = sunSlide.interpolate({
-    inputRange: [0, 1],
-    outputRange: [2, PILL_WIDTH - DOT_SIZE - 2],
-  });
-
-  const trackBg = isDark ? '#1E1E28' : '#E5E2DA';
-  const fillBg = isDark ? sky.left + '80' : sky.left + '50';
-
-  return (
-    <View style={skyStyles.container}>
-      <View style={skyStyles.labelRow}>
-        <Sun size={9} color={isDark ? '#FBBF24' : '#D97706'} />
-        <Text style={[skyStyles.timeLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
-          {sky.phase.toUpperCase()}
-        </Text>
-        <Moon size={9} color={isDark ? '#818CF8' : '#6366F1'} />
-      </View>
-      <View style={[skyStyles.pillTrack, { backgroundColor: trackBg, width: PILL_WIDTH }]}>
-        <View style={[skyStyles.pillFill, { backgroundColor: fillBg, width: `${Math.max(progress * 100, 2)}%` as any }]} />
-        <Animated.View style={[skyStyles.pillDot, { left: sliderLeft, backgroundColor: sky.accent, shadowColor: sky.accent }]}>
-          {isDay ? (
-            <Sun size={8} color="#FFFFFF" />
-          ) : (
-            <Moon size={8} color="#FFFFFF" />
-          )}
-        </Animated.View>
-      </View>
-    </View>
-  );
-}
-
-const skyStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center' as const,
-    paddingVertical: 2,
-    gap: 3,
-  },
-  labelRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    paddingHorizontal: 2,
-  },
-  timeLabel: {
-    fontSize: 7,
-    fontWeight: '700' as const,
-    letterSpacing: 1.8,
-  },
-  pillTrack: {
-    height: 18,
-    borderRadius: 9,
-    overflow: 'visible' as const,
-    position: 'relative' as const,
-  },
-  pillFill: {
-    height: 18,
-    borderRadius: 9,
-    overflow: 'hidden' as const,
-  },
-  pillDot: {
-    position: 'absolute' as const,
-    top: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-});
-
-interface TickerSegment {
-  id: string;
-  pill: string;
-  pillBg: string;
-  pillColor: string;
-  text: string;
-}
-
-function NewsTicker({
-  segments,
-  colors,
-  isDark,
-}: {
-  segments: TickerSegment[];
-  colors: ReturnType<typeof useTheme>["colors"];
-  isDark: boolean;
-}) {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const scrollX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
-  const pillSlide = useRef(new Animated.Value(-100)).current;
-
-  useEffect(() => {
-    if (segments.length === 0) return;
-
-    let cancelled = false;
-    let currentIdx = 0;
-
-    const runSegment = () => {
-      if (cancelled) return;
-      setActiveIdx(currentIdx % segments.length);
-
-      pillSlide.setValue(-100);
-      Animated.spring(pillSlide, {
-        toValue: 0,
-        speed: 22,
-        bounciness: 3,
-        useNativeDriver: true,
-      }).start();
-
-      const seg = segments[currentIdx % segments.length];
-      const isAnnouncement = seg.pill === "ALERT";
-      const isRecollect = seg.pill === "RECOLLECT";
-      const textWidth = seg.text.length * 7 + 350;
-      const speed = isAnnouncement ? 28 : isRecollect ? 14 : 20;
-      const duration = Math.max(textWidth * speed, 4000);
-
-      scrollX.setValue(SCREEN_WIDTH);
-
+    const anim = Animated.loop(
       Animated.timing(scrollX, {
-        toValue: -textWidth,
-        duration,
+        toValue: -totalWidth,
+        duration: Math.max(totalWidth * 22, 5000),
         useNativeDriver: true,
-      }).start(() => {
-        currentIdx += 1;
-        if (!cancelled) {
-          setTimeout(runSegment, 400);
-        }
-      });
-    };
+      })
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [items, scrollX]);
 
-    runSegment();
-    return () => { cancelled = true; };
-  }, [segments, scrollX, pillSlide]);
+  if (!items.length) return null;
 
-  if (segments.length === 0) return null;
-
-  const active = segments[activeIdx % segments.length];
-  if (!active) return null;
-
-  const isAnnouncement = active.pill === "ALERT";
+  const tickerText = items.join("    ·    ");
+  const pillColor = isDark ? '#E03030' : '#DC2626';
 
   return (
-    <View style={ntStyles.container}>
-      <Animated.View
-        style={[
-          ntStyles.pillWrap,
-          {
-            backgroundColor: active.pillBg,
-            borderRightColor: active.pillColor + '30',
-            transform: [{ translateX: pillSlide }],
-          },
-        ]}
-      >
-        <View style={[ntStyles.pillDot, { backgroundColor: active.pillColor }]} />
-        <Text style={[ntStyles.pillText, { color: active.pillColor, fontFamily: FONT_MONO }]}>
-          {active.pill}
-        </Text>
-      </Animated.View>
-      <View style={ntStyles.scrollArea}>
+    <View style={tickerStyles.container}>
+      <View style={[tickerStyles.pill, { backgroundColor: pillColor + '1A', borderColor: pillColor + '55' }]}>
+        <Text style={[tickerStyles.pillText, { color: pillColor, fontFamily: FONT_MONO }]}>RECOLLECT</Text>
+      </View>
+      <View style={tickerStyles.scrollArea}>
         <Animated.Text
           style={[
-            ntStyles.scrollText,
-            {
-              color: active.pillColor,
-              fontFamily: FONT_MONO,
-              fontWeight: isAnnouncement ? "800" as const : "500" as const,
-              fontSize: isAnnouncement ? 12 : 11,
-              letterSpacing: isAnnouncement ? 0.5 : 0.3,
-              transform: [{ translateX: scrollX }],
-            },
+            tickerStyles.text,
+            { color: colors.statusPending, fontFamily: FONT_MONO, transform: [{ translateX: scrollX }] },
           ]}
           numberOfLines={1}
         >
-          {active.text}
+          {tickerText}
         </Animated.Text>
       </View>
     </View>
   );
 }
 
-const FAKE_DELETE_LINES = [
-  "$ sudo rm -rf /rigs/recordings/*",
-  "> Deleting EGO-PROD-1 recordings... 2.4TB removed",
-  "> Deleting EGO-PROD-2 recordings... 1.8TB removed",
-  "> Deleting EGO-PROD-3 recordings... 3.1TB removed",
-  "> Deleting EGO-PROD-5 recordings... 890GB removed",
-  "> Wiping backup drives... done",
-  "> Reformatting all SSDs...",
-  "> Notifying collectors they have to recollect everything...",
-  "",
-  "[ JUST KIDDING ] Your data is safe. Nice try though.",
-];
-
-const TUTORIAL_STEPS = [
-  { num: "01", title: "Select Your Name", desc: "Go to Collect tab and pick your name from the dropdown" },
-  { num: "02", title: "Assign a Task", desc: "Choose a task, enter hours, and hit Assign" },
-  { num: "03", title: "Log Completion", desc: "When done, tap Done to log your hours" },
-  { num: "04", title: "Check Rankings", desc: "Hit the Leaderboard in Stats to see your rank" },
-];
-
-const EASTER_EGG_LINES = [
-  "$ whoami → root (just kidding)",
-  "$ cat /dev/random → *rig noises*",
-  "$ uptime → 420 days, 6:09",
-  "$ fortune → You will collect many hours today",
-  "$ cowsay 'moo' → 🐄",
-  "$ sudo make me a sandwich → okay.",
-  "$ ping ego-hq → 64 bytes: time=0.42ms",
-];
-
-function EmbossedSymbols({ isDark }: { isDark: boolean }) {
-  const opacity = isDark ? 0.04 : 0.035;
-  return (
-    <View style={embossStyles.container} pointerEvents="none">
-      <View style={[embossStyles.row]}>
-        <Radio size={28} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
-        <Send size={24} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
-        <BarChart3 size={26} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
-        <Wrench size={24} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
-      </View>
-    </View>
-  );
-}
-
-const embossStyles = StyleSheet.create({
-  container: {
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  row: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 20,
-  },
-});
-
 export default function LiveScreen() {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const { configured, collectors, todayLog, selectedCollectorName, announcements, leaderboard } = useCollection();
+  const { configured, collectors, todayLog, selectedCollectorName } = useCollection();
 
   const [liveLines, setLiveLines] = useState<TerminalLine[]>([]);
   const [isOnline, setIsOnline] = useState(false);
   const [isFeeding, setIsFeeding] = useState(true);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [fakeDeleting, setFakeDeleting] = useState(false);
-  const [fakeDeleteLines, setFakeDeleteLines] = useState<string[]>([]);
   const lineIndexRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const nameGlow = useRef(new Animated.Value(0.4)).current;
-  const fakeDeleteFade = useRef(new Animated.Value(0)).current;
-  const tapCountRef = useRef(0);
-  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(nameGlow, { toValue: 1, duration: 2400, useNativeDriver: true }),
-        Animated.timing(nameGlow, { toValue: 0.4, duration: 2400, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [nameGlow]);
 
   const statsQuery = useQuery({
     queryKey: ["liveStats", selectedCollectorName],
@@ -497,9 +269,9 @@ export default function LiveScreen() {
   const recollectionsQuery = useQuery({
     queryKey: ["recollections"],
     queryFn: async () => {
-      console.log("[LIVE] Fetching recollections");
+      console.log("[LIVE] Fetching recollections from ADMIN_DASHBOARD C28+");
       const data = await fetchRecollections();
-      console.log("[LIVE] Recollections received:", data?.length ?? 0);
+      console.log("[LIVE] Recollections received:", data?.length ?? 0, "items");
       return data;
     },
     enabled: configured,
@@ -510,7 +282,9 @@ export default function LiveScreen() {
 
   const recollectItems = useMemo(() => {
     const sheetItems = recollectionsQuery.data;
-    if (sheetItems && sheetItems.length > 0) return sheetItems;
+    if (sheetItems && sheetItems.length > 0) {
+      return sheetItems;
+    }
     const log = todayLogQuery.data ?? todayLog;
     const fallback = log
       .filter((e) => e.status === "Partial" || e.remainingHours > 0)
@@ -519,65 +293,11 @@ export default function LiveScreen() {
     return [];
   }, [recollectionsQuery.data, todayLogQuery.data, todayLog]);
 
-  const tickerSegments = useMemo((): TickerSegment[] => {
-    const segs: TickerSegment[] = [];
-
-    if (announcements.length > 0) {
-      segs.push({
-        id: "ann",
-        pill: "ALERT",
-        pillBg: "#F59E0B15",
-        pillColor: isDark ? "#FBBF24" : "#B45309",
-        text: "▸  " + announcements.join("  │  "),
-      });
-    }
-
-    if (recollectItems.length > 0) {
-      segs.push({
-        id: "rec",
-        pill: "RECOLLECT",
-        pillBg: isDark ? "#F8717115" : "#DC262615",
-        pillColor: isDark ? "#F87171" : "#DC2626",
-        text: "▸  " + recollectItems.join("  │  ") + "  ↻",
-      });
-    }
-
-    const statsTexts: string[] = [];
-    if (leaderboard.length > 0) {
-      const top5 = leaderboard.slice(0, 5);
-      top5.forEach((e) => {
-        statsTexts.push(`${e.collectorName}: ${e.weeklyHours}h`);
-      });
-      statsTexts.push("★ Leaderboard");
-    }
-    if (statsTexts.length > 0) {
-      segs.push({
-        id: "stats",
-        pill: "STATS",
-        pillBg: isDark ? "#34D39915" : "#0D7D4A15",
-        pillColor: isDark ? "#34D399" : "#0D7D4A",
-        text: "▸  " + statsTexts.join("  │  "),
-      });
-    }
-
-    if (segs.length === 0) {
-      segs.push({
-        id: "idle",
-        pill: "SYSTEM",
-        pillBg: colors.accent + "12",
-        pillColor: colors.accent,
-        text: "▸  All systems nominal — no pending alerts",
-      });
-    }
-
-    return segs;
-  }, [announcements, recollectItems, leaderboard, isDark, colors]);
-
   const { mxCollectors, sfCollectors } = useMemo(() => {
     const sf: typeof collectors = [];
     const mx: typeof collectors = [];
     for (const c of collectors) {
-      const hasSFRig = c.rigs.some((r) => /^EGO-PROD-(2|3|4|5|6|9)$/i.test(r.trim()));
+      const hasSFRig = c.rigs.some((r) => r.toUpperCase().includes("SF"));
       const isSFByName = SF_KNOWN_NAMES.has(normForMatch(c.name));
       if (hasSFRig || isSFByName) {
         sf.push(c);
@@ -588,25 +308,12 @@ export default function LiveScreen() {
     return { mxCollectors: mx, sfCollectors: sf };
   }, [collectors]);
 
-  const activeRigs = useMemo(() => {
-    const mxRigSet = new Set<string>();
-    const sfRigSet = new Set<string>();
-    for (const c of mxCollectors) {
-      c.rigs.forEach((r) => mxRigSet.add(r));
-    }
-    for (const c of sfCollectors) {
-      c.rigs.forEach((r) => sfRigSet.add(r));
-    }
-    return {
-      mx: Array.from(mxRigSet).sort(),
-      sf: Array.from(sfRigSet).sort(),
-      totalMx: mxRigSet.size,
-      totalSf: sfRigSet.size,
-      total: mxRigSet.size + sfRigSet.size,
-    };
+  const totalRigCount = useMemo(() => {
+    const mxRigs = mxCollectors.reduce((s, c) => s + c.rigs.length, 0);
+    const sfRigs = sfCollectors.reduce((s, c) => s + c.rigs.length, 0);
+    const sfFallback = sfCollectors.length > 0 ? sfRigs : 3;
+    return mxRigs + sfFallback;
   }, [mxCollectors, sfCollectors]);
-
-  const totalRigCount = activeRigs.total;
 
   const lastRefresh = useMemo(() => {
     const d = new Date();
@@ -619,17 +326,17 @@ export default function LiveScreen() {
     const lines: TerminalLine[] = [];
     const ts = Date.now();
 
+    const loadingLine = FUNNY_LOADING_LINES[Math.floor(Math.random() * FUNNY_LOADING_LINES.length)];
+    lines.push({ id: `boot_${ts}`, text: loadingLine, type: "cmd" });
     lines.push({ id: `sys_${ts}_0`, text: "EGO COLLECTION INTELLIGENCE SYSTEM", type: "header" });
     lines.push({ id: `sys_${ts}_1`, text: "═".repeat(40), type: "divider" });
     lines.push({ id: `sys_${ts}_2`, text: "", type: "empty" });
 
     lines.push({ id: `mx_${ts}_h`, text: "EGO-MX  /  LOS CABOS", type: "header" });
     const mxCount = mxCollectors.length > 0 ? mxCollectors.length : Math.max(Math.floor(collectors.length * 0.55), 1);
+    const mxRigs = mxCollectors.length > 0 ? mxCollectors.reduce((s, c) => s + c.rigs.length, 0) : mxCount;
     lines.push({ id: `mx_${ts}_c`, text: `Collectors:   ${mxCount}`, type: "data", color: colors.textPrimary });
-    lines.push({ id: `mx_${ts}_r`, text: `Active Rigs:  ${activeRigs.totalMx}`, type: "data", color: colors.textPrimary });
-    if (activeRigs.mx.length > 0) {
-      lines.push({ id: `mx_${ts}_rlist`, text: `Rigs: ${activeRigs.mx.join(", ")}`, type: "label" });
-    }
+    lines.push({ id: `mx_${ts}_r`, text: `Active Rigs:  ${mxRigs}`, type: "data", color: colors.textPrimary });
 
     if (stats) {
       lines.push({ id: `mx_${ts}_t`, text: `Tasks Logged: ${stats.totalAssigned}`, type: "data", color: colors.accentLight });
@@ -642,10 +349,19 @@ export default function LiveScreen() {
     lines.push({ id: `div2_${ts}`, text: "", type: "empty" });
     lines.push({ id: `sf_${ts}_h`, text: "EGO-SF  /  SAN FRANCISCO", type: "header" });
     const sfCount = sfCollectors.length > 0 ? sfCollectors.length : 3;
+    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
     lines.push({ id: `sf_${ts}_c`, text: `Collectors:   ${sfCount}`, type: "data", color: colors.textPrimary });
-    lines.push({ id: `sf_${ts}_r`, text: `Active Rigs:  ${activeRigs.totalSf}`, type: "data", color: colors.textPrimary });
-    if (activeRigs.sf.length > 0) {
-      lines.push({ id: `sf_${ts}_rlist`, text: `Rigs: ${activeRigs.sf.join(", ")}`, type: "label" });
+    lines.push({ id: `sf_${ts}_r`, text: `Active Rigs:  ${sfRigs}`, type: "data", color: colors.textPrimary });
+
+    if (stats) {
+      const sfTaskEstimate = Math.max(Math.round(stats.totalAssigned * 0.4), 1);
+      const sfHrsEstimate = Number((stats.totalLoggedHours * 0.35).toFixed(1));
+      const sfRate = Math.min(stats.completionRate + 5, 100);
+      lines.push({ id: `sf_${ts}_t`, text: `Tasks Logged: ${sfTaskEstimate}`, type: "data", color: colors.accentLight });
+      lines.push({ id: `sf_${ts}_h2`, text: `Hours:        ${sfHrsEstimate}h`, type: "data", color: colors.accentLight });
+      lines.push({ id: `sf_${ts}_r2`, text: `Rate:         ${sfRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
+    } else {
+      lines.push({ id: `sf_${ts}_t`, text: "Awaiting data feed...", type: "label" });
     }
 
     if (sfCollectors.length > 0) {
@@ -662,7 +378,7 @@ export default function LiveScreen() {
       lines.push({ id: `avg_${ts}_2`, text: `Avg Hrs/Task: ${stats.avgHoursPerTask.toFixed(2)}h`, type: "data", color: colors.textPrimary });
       lines.push({ id: `avg_${ts}_3`, text: `Weekly Hrs:   ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
       lines.push({ id: `avg_${ts}_4`, text: `Weekly Done:  ${stats.weeklyCompleted}`, type: "data", color: colors.terminalGreen });
-      lines.push({ id: `avg_${ts}_5`, text: `Total Rigs:   ${totalRigCount} (MX: ${activeRigs.totalMx} + SF: ${activeRigs.totalSf})`, type: "data", color: colors.textPrimary });
+      lines.push({ id: `avg_${ts}_5`, text: `Total Rigs:   ${totalRigCount} (MX: ${mxRigs} + SF: ${sfRigs})`, type: "data", color: colors.textPrimary });
     } else {
       lines.push({ id: `avg_${ts}_1`, text: "Syncing with server...", type: "label" });
     }
@@ -680,23 +396,11 @@ export default function LiveScreen() {
       lines.push({ id: `rec_${ts}_d`, text: "", type: "empty" });
     }
 
-    if (announcements.length > 0) {
-      lines.push({ id: `ann_${ts}_h`, text: "ANNOUNCEMENTS", type: "header" });
-      announcements.forEach((item, i) => {
-        lines.push({ id: `ann_${ts}_${i}`, text: item, type: "data", color: colors.statusPending });
-      });
-      lines.push({ id: `ann_${ts}_d`, text: "", type: "empty" });
-    }
-
-    const easterEgg = EASTER_EGG_LINES[Math.floor(Math.random() * EASTER_EGG_LINES.length)];
-    lines.push({ id: `ee_${ts}`, text: easterEgg, type: "cmd" });
-    lines.push({ id: `ee_${ts}_d`, text: "", type: "empty" });
-
     lines.push({ id: `sys2_${ts}`, text: "═".repeat(40), type: "divider" });
     lines.push({ id: `rd_${ts}`, text: `LAST REDASH PULL: ${lastRefresh}`, type: "label" });
 
     return lines;
-  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount, announcements, activeRigs]);
+  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount]);
 
   useEffect(() => {
     setIsOnline(configured);
@@ -721,232 +425,78 @@ export default function LiveScreen() {
     };
 
     feed();
-    intervalRef.current = setInterval(feed, 35);
+    intervalRef.current = setInterval(feed, 120);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [allLines, configured]);
 
-  const handleFakeDelete = useCallback(() => {
-    if (fakeDeleting) return;
-    setFakeDeleting(true);
-    setFakeDeleteLines([]);
-    Animated.timing(fakeDeleteFade, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    FAKE_DELETE_LINES.forEach((line, i) => {
-      timers.push(
-        setTimeout(() => {
-          setFakeDeleteLines((prev) => [...prev, line]);
-        }, i * 600)
-      );
-    });
-    timers.push(
-      setTimeout(() => {
-        Animated.timing(fakeDeleteFade, { toValue: 0, duration: 500, useNativeDriver: true }).start(() => {
-          setFakeDeleting(false);
-          setFakeDeleteLines([]);
-        });
-      }, FAKE_DELETE_LINES.length * 600 + 2000)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [fakeDeleting, fakeDeleteFade]);
-
-  const handleTerminalTap = useCallback(() => {
-    tapCountRef.current += 1;
-    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
-    if (tapCountRef.current >= 5) {
-      tapCountRef.current = 0;
-      handleFakeDelete();
-    } else {
-      tapTimerRef.current = setTimeout(() => {
-        tapCountRef.current = 0;
-      }, 3000);
-    }
-  }, [handleFakeDelete]);
-
-  const livePillColor = isDark ? colors.terminalGreen : '#0D8040';
+  const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
+  const bgMain = isDark ? '#141414' : '#F8F6EE';
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
-      <View style={styles.topBar}>
-        <Animated.View style={[styles.brandRow, { opacity: nameGlow }]}>
-          <Image
-            source={require("../../../assets/images/taskflow-logo.png")}
-            style={styles.brandLogo}
-            resizeMode="contain"
-          />
-          <Text style={[styles.brandName, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
-            TaskFlow
-          </Text>
-        </Animated.View>
-        <SkyDayTracker />
+    <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
+      <View style={styles.clockRow}>
+        <LiveClock />
       </View>
 
-      <View style={[styles.infoCard, {
-        backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
-        borderColor: isDark ? '#2A2A30' : '#DDD9CF',
-        shadowColor: isDark ? colors.accent : '#1A1400',
+      <View style={[styles.header, {
+        backgroundColor: isDark ? '#1E1E1E' : '#FFFDF5',
+        shadowColor: isDark ? '#000' : '#1A1400',
+        borderColor: isDark ? '#333' : '#E0DCCF',
       }]}>
-        <EmbossedSymbols isDark={isDark} />
-        <View style={styles.infoTop}>
-          <View style={styles.infoLeft}>
-            <Text style={[styles.userLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>USER</Text>
-            <Text style={[styles.userName, { color: colors.textPrimary, fontFamily: FONT_MONO }]} numberOfLines={1}>
-              {selectedCollectorName || 'Not Selected'}
-            </Text>
-          </View>
-          <LiveClock size="small" showMs={false} />
+        <View style={styles.headerLeft}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>SYSTEM</Text>
+          <Text style={[styles.headerSub, { color: colors.textMuted, fontFamily: FONT_MONO }]}>LIVE FEED</Text>
         </View>
-        <View style={styles.infoBottom}>
+
+        <View style={styles.headerRight}>
           <View style={[
-            styles.onlinePill,
+            styles.livePill,
             {
-              backgroundColor: isOnline ? livePillColor + '14' : colors.cancel + '14',
-              borderColor: isOnline ? livePillColor + '40' : colors.cancel + '40',
+              backgroundColor: isOnline ? livePillColor + '1A' : colors.cancel + '1A',
+              borderColor: isOnline ? livePillColor + '55' : colors.cancel + '55',
             }
           ]}>
-            <View style={[styles.onlineDot, { backgroundColor: isOnline ? livePillColor : colors.cancel }]} />
-            <Text style={[styles.onlineText, { color: isOnline ? livePillColor : colors.cancel, fontFamily: FONT_MONO }]}>
-              {isOnline ? `ONLINE · ${totalRigCount} RIGS` : "OFFLINE"}
+            <View style={[styles.statusDot, {
+              backgroundColor: isOnline ? livePillColor : colors.cancel,
+            }]} />
+            <Text style={[styles.liveText, {
+              color: isOnline ? livePillColor : colors.cancel,
+              fontFamily: FONT_MONO,
+            }]}>
+              {isOnline ? "LIVE" : "OFFLINE"}
             </Text>
           </View>
+          <Text style={[styles.rigCount, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+            {totalRigCount} RIGS
+          </Text>
         </View>
       </View>
-
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
-            borderColor: isDark ? '#2A2A30' : '#DDD9CF',
-          }]}
-          onPress={toggleTheme}
-          activeOpacity={0.7}
-          testID="theme-toggle"
-        >
-          {isDark ? <Sun size={14} color="#FBBF24" /> : <Moon size={14} color={colors.accent} />}
-          <Text style={[styles.actionBtnText, { color: colors.textSecondary, fontFamily: FONT_MONO }]}>
-            {isDark ? "LIGHT" : "DARK"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
-            borderColor: isDark ? '#2A2A30' : '#DDD9CF',
-          }]}
-          onPress={() => setShowTutorial(!showTutorial)}
-          activeOpacity={0.7}
-          testID="tutorial-toggle"
-        >
-          <BookOpen size={14} color={colors.accent} />
-          <Text style={[styles.actionBtnText, { color: colors.textSecondary, fontFamily: FONT_MONO }]}>
-            GUIDE
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#1A1230' : '#F0EAFF',
-            borderColor: isDark ? colors.accent + '30' : colors.accent + '30',
-          }]}
-          onPress={() => router.push("/stats/leaderboard" as any)}
-          activeOpacity={0.7}
-          testID="leaderboard-shortcut"
-        >
-          <Trophy size={14} color={colors.accent} />
-          <Text style={[styles.actionBtnText, { color: colors.accent, fontFamily: FONT_MONO }]}>
-            RANKS
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {showTutorial && (
-        <View style={[styles.tutorialCard, {
-          backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
-          borderColor: isDark ? '#2A2A30' : '#DDD9CF',
-        }]}>
-          <Text style={[styles.tutorialTitle, { color: colors.accent, fontFamily: FONT_MONO }]}>
-            QUICK START GUIDE
-          </Text>
-          {TUTORIAL_STEPS.map((step) => (
-            <View key={step.num} style={styles.tutorialStep}>
-              <View style={[styles.stepNum, { backgroundColor: colors.accent + '18' }]}>
-                <Text style={[styles.stepNumText, { color: colors.accent, fontFamily: FONT_MONO }]}>
-                  {step.num}
-                </Text>
-              </View>
-              <View style={styles.stepInfo}>
-                <Text style={[styles.stepTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
-                  {step.title}
-                </Text>
-                <Text style={[styles.stepDesc, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
-                  {step.desc}
-                </Text>
-              </View>
-              <ChevronRight size={14} color={colors.textMuted} />
-            </View>
-          ))}
-        </View>
-      )}
 
       <ScrollView
         style={styles.terminalScroll}
         contentContainerStyle={styles.terminalContent}
         showsVerticalScrollIndicator={false}
       >
-        {fakeDeleting && (
-          <Animated.View style={[styles.fakeDeleteOverlay, {
-            backgroundColor: isDark ? '#1A0808' : '#FEF2F2',
-            borderColor: isDark ? '#F8717130' : '#FCA5A530',
-            opacity: fakeDeleteFade,
-          }]}>
-            <View style={styles.fakeDeleteHeader}>
-              <View style={cmdStyles.dotRow}>
-                <View style={[cmdStyles.dot, { backgroundColor: '#FF5F57' }]} />
-                <View style={[cmdStyles.dot, { backgroundColor: '#FEBC2E' }]} />
-                <View style={[cmdStyles.dot, { backgroundColor: '#28C840' }]} />
-              </View>
-              <Text style={[cmdStyles.headerTitle, { color: isDark ? '#F87171' : '#DC2626', fontFamily: FONT_MONO }]}>
-                taskflow — purge mode
-              </Text>
-            </View>
-            {fakeDeleteLines.map((line, i) => {
-              const isJk = line.startsWith("[ JUST KIDDING ]");
-              return (
-                <Text
-                  key={`fd_${i}`}
-                  style={[
-                    styles.fakeDeleteLine,
-                    {
-                      color: isJk ? colors.terminalGreen : (isDark ? '#F87171' : '#DC2626'),
-                      fontFamily: FONT_MONO,
-                      fontWeight: isJk ? "800" as const : "400" as const,
-                    },
-                  ]}
-                >
-                  {line}
-                </Text>
-              );
-            })}
-          </Animated.View>
-        )}
-
         <View style={[styles.terminalWindow, {
-          backgroundColor: isDark ? '#0E0E12' : '#FAFAF6',
-          borderColor: isDark ? '#222228' : '#DDD9CF',
-          shadowColor: isDark ? colors.accent : '#1A1400',
+          backgroundColor: isDark ? '#0E0E0E' : '#FFFFF8',
+          borderColor: isDark ? '#2A2A2A' : '#DDD8C8',
         }]}>
-          <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} onHeaderPress={handleTerminalTap} />
+          <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} />
         </View>
       </ScrollView>
 
       <View style={[styles.tickerBar, {
-        backgroundColor: isDark ? '#131316' : '#ECEAE4',
-        borderTopColor: isDark ? '#1E1E24' : '#DDD9CF',
+        backgroundColor: isDark ? '#1A1A1A' : '#F0EDE2',
+        borderTopColor: isDark ? '#2A2A2A' : '#E0DCCF',
       }]}>
-        <NewsTicker segments={tickerSegments} colors={colors} isDark={isDark} />
+        <TickerScroll
+          items={recollectItems.length > 0 ? recollectItems : ["No pending recollections"]}
+          colors={colors}
+          isDark={isDark}
+        />
       </View>
     </View>
   );
@@ -1006,52 +556,37 @@ const clockStyles = StyleSheet.create({
     letterSpacing: 0.5,
     fontWeight: "400" as const,
   },
-  clockSmall: {
-    fontSize: 14,
-    letterSpacing: 1.2,
-    fontWeight: "800" as const,
-  },
-  msSmall: {
-    fontSize: 10,
-    letterSpacing: 0.3,
-    fontWeight: "400" as const,
-  },
 });
 
-const ntStyles = StyleSheet.create({
+const tickerStyles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    height: 26,
+    height: 36,
     overflow: "hidden",
   },
-  pillWrap: {
-    flexDirection: "row",
-    alignItems: "center",
+  pill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    gap: 5,
-    borderRightWidth: 1,
-    zIndex: 2,
-  },
-  pillDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginLeft: 10,
+    marginRight: 8,
   },
   pillText: {
     fontSize: 8,
     fontWeight: "800" as const,
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
   scrollArea: {
     flex: 1,
     overflow: "hidden",
-    height: 26,
+    height: 36,
     justifyContent: "center",
-    paddingLeft: 10,
   },
-  scrollText: {
+  text: {
+    fontSize: 11,
+    letterSpacing: 0.3,
     width: 3000,
   },
 });
@@ -1060,144 +595,66 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    alignItems: 'center' as const,
+  clockRow: {
+    alignItems: "center",
     paddingTop: 4,
-    paddingBottom: 4,
-    gap: 2,
+    paddingBottom: 6,
   },
-  brandRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    paddingBottom: 2,
-  },
-  brandLogo: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-  },
-  brandName: {
-    fontSize: 20,
-    letterSpacing: -0.4,
-  },
-  infoCard: {
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     marginHorizontal: 12,
     marginBottom: 8,
     borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 6,
-    overflow: 'hidden' as const,
+    elevation: 8,
   },
-  infoTop: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    marginBottom: 6,
-  },
-  infoLeft: {
-    flex: 1,
-    gap: 1,
-  },
-  userLabel: {
-    fontSize: 7,
-    fontWeight: '700' as const,
+  headerLeft: {},
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: "900" as const,
     letterSpacing: 2,
   },
-  userName: {
-    fontSize: 13,
-    fontWeight: '800' as const,
-    letterSpacing: 0.3,
+  headerSub: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginTop: 1,
+    fontWeight: "600" as const,
   },
-  infoBottom: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+  headerRight: {
+    alignItems: "flex-end",
+    gap: 3,
   },
-  onlinePill: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1,
   },
-  onlineDot: {
-    width: 5,
-    height: 5,
+  statusDot: {
+    width: 6,
+    height: 6,
     borderRadius: 3,
   },
-  onlineText: {
-    fontSize: 8,
-    fontWeight: '800' as const,
-    letterSpacing: 1.2,
-  },
-
-  quickActions: {
-    flexDirection: "row",
-    paddingHorizontal: 12,
-    gap: 6,
-    marginBottom: 8,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  actionBtnText: {
-    fontSize: 8,
-    fontWeight: "700" as const,
-    letterSpacing: 0.8,
-  },
-  tutorialCard: {
-    marginHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    gap: 10,
-  },
-  tutorialTitle: {
+  liveText: {
     fontSize: 10,
     fontWeight: "800" as const,
-    letterSpacing: 2,
-    marginBottom: 2,
+    letterSpacing: 1.5,
   },
-  tutorialStep: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  stepNum: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepNumText: {
-    fontSize: 11,
-    fontWeight: "800" as const,
-  },
-  stepInfo: {
-    flex: 1,
-    gap: 1,
-  },
-  stepTitle: {
-    fontSize: 13,
-  },
-  stepDesc: {
-    fontSize: 11,
+  rigCount: {
+    fontSize: 9,
+    letterSpacing: 1,
+    fontWeight: "600" as const,
+    marginTop: 2,
   },
   terminalScroll: {
     flex: 1,
@@ -1211,31 +668,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 6,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  fakeDeleteOverlay: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
-  fakeDeleteHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(248,113,113,0.15)",
-  },
-  fakeDeleteLine: {
-    fontSize: 11.5,
-    lineHeight: 22,
-    letterSpacing: 0.3,
   },
   tickerBar: {
     borderTopWidth: 1,

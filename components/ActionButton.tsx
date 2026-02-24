@@ -87,7 +87,7 @@ export default React.memo(function ActionButton({
         ) : (
           <View style={styles.content}>
             {icon}
-            <Text style={[styles.text, { color, fontFamily: "Lexend_600SemiBold" }]}>{title}</Text>
+            <Text style={[styles.text, { color }]}>{title}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     width: "100%" as const,
   },
   button: {
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 13,
     paddingHorizontal: 12,
     alignItems: "center" as const,
@@ -118,6 +118,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 13,
+    fontWeight: "600" as const,
     letterSpacing: 0.3,
   },
   disabled: {

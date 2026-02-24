@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,8 @@ import {
   StyleSheet,
   Animated,
   Platform,
-  TextInput,
 } from "react-native";
-import { ChevronDown, Check, Search } from "lucide-react-native";
+import { ChevronDown, Check } from "lucide-react-native";
 import { useTheme } from "../providers/ThemeProvider";
 
 interface Option {
@@ -25,8 +24,6 @@ interface SelectPickerProps {
   onValueChange: (value: string) => void;
   placeholder?: string;
   testID?: string;
-  searchable?: boolean;
-  searchPlaceholder?: string;
 }
 
 export default React.memo(function SelectPicker({
@@ -36,21 +33,12 @@ export default React.memo(function SelectPicker({
   onValueChange,
   placeholder = "Select...",
   testID,
-  searchable = false,
-  searchPlaceholder = "Search...",
 }: SelectPickerProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const selectedOption = options.find((o) => o.value === selectedValue);
-
-  const filteredOptions = useMemo(() => {
-    if (!searchable || !searchQuery.trim()) return options;
-    const q = searchQuery.toLowerCase().trim();
-    return options.filter((o) => o.label.toLowerCase().includes(q));
-  }, [options, searchQuery, searchable]);
 
   const open = useCallback(() => {
     setVisible(true);
@@ -66,10 +54,7 @@ export default React.memo(function SelectPicker({
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
-    }).start(() => {
-      setVisible(false);
-      setSearchQuery("");
-    });
+    }).start(() => setVisible(false));
   }, [fadeAnim]);
 
   const handleSelect = useCallback(
@@ -79,8 +64,6 @@ export default React.memo(function SelectPicker({
     },
     [onValueChange, close]
   );
-
-  const sheetBg = isDark ? '#1C1C20' : '#FFFFFF';
 
   const renderItem = useCallback(
     ({ item }: { item: Option }) => {
@@ -97,7 +80,8 @@ export default React.memo(function SelectPicker({
           <Text
             style={[
               styles.optionText,
-              { color: isSelected ? colors.accent : colors.textPrimary, fontFamily: isSelected ? "Lexend_600SemiBold" : "Lexend_400Regular" },
+              { color: isSelected ? colors.accent : colors.textPrimary },
+              isSelected && styles.optionTextSelected,
             ]}
           >
             {item.label}
@@ -113,7 +97,7 @@ export default React.memo(function SelectPicker({
 
   return (
     <View style={styles.container} testID={testID}>
-      {label ? <Text style={[styles.label, { color: colors.textSecondary, fontFamily: "Lexend_600SemiBold" }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text> : null}
       <TouchableOpacity
         style={[styles.trigger, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
         onPress={open}
@@ -122,7 +106,7 @@ export default React.memo(function SelectPicker({
         <Text
           style={[
             styles.triggerText,
-            { color: selectedOption ? colors.textPrimary : colors.textMuted, fontFamily: "Lexend_500Medium" },
+            { color: selectedOption ? colors.textPrimary : colors.textMuted },
           ]}
           numberOfLines={1}
         >
@@ -148,7 +132,7 @@ export default React.memo(function SelectPicker({
             style={[
               styles.sheet,
               {
-                backgroundColor: sheetBg,
+                backgroundColor: colors.bgCard,
                 transform: [
                   {
                     translateY: fadeAnim.interpolate({
@@ -161,26 +145,11 @@ export default React.memo(function SelectPicker({
             ]}
           >
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
               {label || "Select Option"}
             </Text>
-            {searchable && (
-              <View style={[styles.searchRow, { backgroundColor: colors.bgInput, borderColor: colors.border }]}>
-                <Search size={15} color={colors.textMuted} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.textPrimary, fontFamily: "Lexend_400Regular" }]}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder={searchPlaceholder}
-                  placeholderTextColor={colors.textMuted}
-                  autoFocus
-                  autoCorrect={false}
-                  testID={testID ? `${testID}-search` : undefined}
-                />
-              </View>
-            )}
             <FlatList
-              data={filteredOptions}
+              data={options}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               style={styles.list}
@@ -199,13 +168,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
+    fontWeight: "600" as const,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   trigger: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
@@ -213,10 +183,11 @@ const styles = StyleSheet.create({
   triggerText: {
     flex: 1,
     fontSize: 15,
+    fontWeight: "500" as const,
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "flex-end" as const,
   },
   overlayTouch: {
@@ -239,6 +210,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 16,
+    fontWeight: "600" as const,
     marginBottom: 8,
   },
   list: {
@@ -249,26 +221,14 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     paddingVertical: 13,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     marginBottom: 2,
   },
   optionText: {
     flex: 1,
     fontSize: 15,
   },
-  searchRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === "ios" ? 10 : 6,
-    marginBottom: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
+  optionTextSelected: {
+    fontWeight: "600" as const,
   },
 });

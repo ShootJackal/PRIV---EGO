@@ -306,7 +306,7 @@ function SummaryChip({ label, value, color, bg }: { label: string; value: string
 }
 
 function AdminDashboardView({ configured }: { configured: boolean }) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
 
   const adminQuery = useQuery({
@@ -324,44 +324,6 @@ function AdminDashboardView({ configured }: { configured: boolean }) {
     staleTime: 30000,
     retry: 2,
   });
-
-  const fullLogQuery = useQuery({
-    queryKey: ["fullLog"],
-    queryFn: () => fetchFullLog(),
-    enabled: configured,
-    staleTime: 60000,
-    retry: 1,
-  });
-
-  const collectorBreakdown = useMemo(() => {
-    const entries = fullLogQuery.data ?? [];
-    const map = new Map<string, { hours: number; completed: number; total: number }>();
-    for (const e of entries) {
-      const name = e.collector.replace(/\s*\(.*?\)\s*$/g, "").trim();
-      if (!name) continue;
-      if (!map.has(name)) map.set(name, { hours: 0, completed: 0, total: 0 });
-      const s = map.get(name)!;
-      s.hours += e.loggedHours;
-      s.total += 1;
-      if (e.status === "Completed") s.completed += 1;
-    }
-    return Array.from(map.entries())
-      .map(([name, stats]) => ({ name, ...stats }))
-      .sort((a, b) => b.hours - a.hours);
-  }, [fullLogQuery.data]);
-
-  const teamTotals = useMemo(() => {
-    const entries = fullLogQuery.data ?? [];
-    let totalHours = 0;
-    let totalCompleted = 0;
-    let totalAssigned = 0;
-    for (const e of entries) {
-      totalHours += e.loggedHours;
-      totalAssigned += 1;
-      if (e.status === "Completed") totalCompleted += 1;
-    }
-    return { totalHours, totalCompleted, totalAssigned, rate: totalAssigned > 0 ? Math.round((totalCompleted / totalAssigned) * 100) : 0 };
-  }, [fullLogQuery.data]);
 
   const isLoading = adminQuery.isLoading && recollectQuery.isLoading;
   const hasAdminData = !!adminQuery.data;
@@ -385,7 +347,6 @@ function AdminDashboardView({ configured }: { configured: boolean }) {
   }
 
   const data = adminQuery.data;
-  const maxCollectorHours = collectorBreakdown.length > 0 ? Math.max(...collectorBreakdown.map((c) => c.hours), 1) : 1;
 
   return (
     <View style={viewStyles.list}>
@@ -395,61 +356,6 @@ function AdminDashboardView({ configured }: { configured: boolean }) {
           <SummaryChip label="Done" value={String(data.completedTasks)} color={colors.complete} bg={colors.completeBg} />
           <SummaryChip label="Active" value={String(data.inProgressTasks)} color={colors.accent} bg={colors.accentSoft} />
           <SummaryChip label="Recollect" value={String(data.recollectTasks)} color={colors.cancel} bg={colors.cancelBg} />
-        </View>
-      )}
-
-      {teamTotals.totalAssigned > 0 && (
-        <View style={[viewStyles.teamCard, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}>
-          <Text style={[viewStyles.teamTitle, { color: colors.textMuted }]}>TEAM OVERVIEW</Text>
-          <View style={viewStyles.teamRow}>
-            <View style={viewStyles.teamStat}>
-              <Text style={[viewStyles.teamVal, { color: colors.accent }]}>{teamTotals.totalHours.toFixed(0)}h</Text>
-              <Text style={[viewStyles.teamLabel, { color: colors.textMuted }]}>Total Hours</Text>
-            </View>
-            <View style={[viewStyles.teamSep, { backgroundColor: colors.border }]} />
-            <View style={viewStyles.teamStat}>
-              <Text style={[viewStyles.teamVal, { color: colors.complete }]}>{teamTotals.totalCompleted}</Text>
-              <Text style={[viewStyles.teamLabel, { color: colors.textMuted }]}>Completed</Text>
-            </View>
-            <View style={[viewStyles.teamSep, { backgroundColor: colors.border }]} />
-            <View style={viewStyles.teamStat}>
-              <Text style={[viewStyles.teamVal, { color: colors.textPrimary }]}>{teamTotals.totalAssigned}</Text>
-              <Text style={[viewStyles.teamLabel, { color: colors.textMuted }]}>Assigned</Text>
-            </View>
-            <View style={[viewStyles.teamSep, { backgroundColor: colors.border }]} />
-            <View style={viewStyles.teamStat}>
-              <Text style={[viewStyles.teamVal, { color: colors.complete }]}>{teamTotals.rate}%</Text>
-              <Text style={[viewStyles.teamLabel, { color: colors.textMuted }]}>Rate</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {collectorBreakdown.length > 0 && (
-        <View style={[viewStyles.breakdownCard, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}>
-          <Text style={[viewStyles.teamTitle, { color: colors.textMuted }]}>COLLECTOR BREAKDOWN</Text>
-          {collectorBreakdown.map((c, idx) => (
-            <View key={`cb_${idx}`} style={[viewStyles.breakdownRow, idx > 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
-              <View style={viewStyles.breakdownInfo}>
-                <Text style={[viewStyles.breakdownName, { color: colors.textPrimary }]}>{c.name}</Text>
-                <View style={viewStyles.breakdownBar}>
-                  <View
-                    style={[
-                      viewStyles.breakdownFill,
-                      {
-                        backgroundColor: colors.accent,
-                        width: `${Math.round((c.hours / maxCollectorHours) * 100)}%` as any,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-              <View style={viewStyles.breakdownStats}>
-                <Text style={[viewStyles.breakdownHours, { color: colors.accent }]}>{c.hours.toFixed(1)}h</Text>
-                <Text style={[viewStyles.breakdownDone, { color: colors.complete }]}>{c.completed}/{c.total}</Text>
-              </View>
-            </View>
-          ))}
         </View>
       )}
 
@@ -520,7 +426,7 @@ export default function SheetViewerScreen() {
   }, [sheetId, queryClient]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
+    <View style={[pageStyles.container, { backgroundColor: colors.bg }]}>
       <Stack.Screen
         options={{
           title: title as string,
@@ -528,7 +434,7 @@ export default function SheetViewerScreen() {
           headerTintColor: colors.textPrimary,
           headerShadowVisible: false,
           headerRight: () => (
-            <TouchableOpacity onPress={handleRefresh} style={styles.headerBtn} activeOpacity={0.7}>
+            <TouchableOpacity onPress={handleRefresh} style={pageStyles.headerBtn} activeOpacity={0.7}>
               <RefreshCw size={18} color={colors.accent} />
             </TouchableOpacity>
           ),
@@ -536,8 +442,8 @@ export default function SheetViewerScreen() {
       />
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
+        style={pageStyles.scroll}
+        contentContainerStyle={pageStyles.content}
         showsVerticalScrollIndicator={false}
       >
         {sheetId === "log" && (
@@ -710,90 +616,9 @@ const viewStyles = StyleSheet.create({
   },
   hintTitle: { fontSize: 13, fontWeight: "600" as const, marginBottom: 6 },
   hintText: { fontSize: 12, lineHeight: 17 },
-  teamCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  teamTitle: {
-    fontSize: 11,
-    fontWeight: "700" as const,
-    letterSpacing: 1.2,
-    marginBottom: 12,
-  },
-  teamRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-  },
-  teamStat: {
-    flex: 1,
-    alignItems: "center" as const,
-  },
-  teamVal: {
-    fontSize: 17,
-    fontWeight: "700" as const,
-  },
-  teamLabel: {
-    fontSize: 10,
-    fontWeight: "500" as const,
-    marginTop: 2,
-  },
-  teamSep: {
-    width: 1,
-    height: 28,
-  },
-  breakdownCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  breakdownRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    paddingVertical: 10,
-    gap: 12,
-  },
-  breakdownInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  breakdownName: {
-    fontSize: 13,
-    fontWeight: "600" as const,
-  },
-  breakdownBar: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(128,128,128,0.1)",
-    overflow: "hidden" as const,
-  },
-  breakdownFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  breakdownStats: {
-    alignItems: "flex-end" as const,
-    gap: 1,
-  },
-  breakdownHours: {
-    fontSize: 13,
-    fontWeight: "700" as const,
-  },
-  breakdownDone: {
-    fontSize: 10,
-    fontWeight: "500" as const,
-  },
 });
 
-const styles = StyleSheet.create({
+const pageStyles = StyleSheet.create({
   container: { flex: 1 },
   headerBtn: { padding: 8 },
   scroll: { flex: 1 },

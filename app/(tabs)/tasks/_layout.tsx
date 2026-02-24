@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import { useTheme } from "../../../providers/ThemeProvider";
 
-export default function StatsLayout() {
+export default function TasksLayout() {
   const { colors } = useTheme();
 
   return (
@@ -16,7 +16,7 @@ export default function StatsLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: "Statistics" }}
+        options={{ title: "My Tasks" }}
       />
     </Stack>
   );

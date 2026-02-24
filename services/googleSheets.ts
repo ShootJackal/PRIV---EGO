@@ -1,4 +1,4 @@
-import { Collector, Task, LogEntry, TaskMeta, SubmitPayload, SubmitResponse, CollectorStats, TaskActualRow, FullLogEntry, AdminDashboardData, CATaggedEntry, WeeklyLogEntry } from "../types";
+import { Collector, Task, LogEntry, TaskMeta, SubmitPayload, SubmitResponse, CollectorStats, TaskActualRow, FullLogEntry, AdminDashboardData } from "../types";
 
 function getScriptUrl(): string {
   return process.env.EXPO_PUBLIC_GOOGLE_SCRIPT_URL ?? "";
@@ -18,58 +18,28 @@ async function apiGet<T>(action: string, params: Record<string, string> = {}): P
     throw new Error("Google Script URL not configured. Set EXPO_PUBLIC_GOOGLE_SCRIPT_URL.");
   }
 
-  let fullUrl: string;
-  try {
-    const urlObj = new URL(scriptUrl);
-    urlObj.searchParams.set("action", action);
-    Object.entries(params).forEach(([k, v]) => urlObj.searchParams.set(k, v));
-    fullUrl = urlObj.toString();
-  } catch (urlErr) {
-    console.log("[API] URL parse failed, using string concat fallback", urlErr);
-    const sep = scriptUrl.includes("?") ? "&" : "?";
-    const paramStr = Object.entries({ action, ...params })
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-      .join("&");
-    fullUrl = `${scriptUrl}${sep}${paramStr}`;
+  const url = new URL(scriptUrl);
+  url.searchParams.set("action", action);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  console.log("[API] GET", action, params);
+
+  const response = await fetch(url.toString(), { redirect: "follow" });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.log("[API] HTTP error:", response.status, text);
+    throw new Error(`HTTP ${response.status}: ${text}`);
   }
 
-  console.log("[API] GET", action, fullUrl.slice(0, 120));
+  const json = (await response.json()) as ApiResponse<T>;
+  console.log("[API] Response:", JSON.stringify(json).slice(0, 500));
 
-  try {
-    const response = await fetch(fullUrl, {
-      method: "GET",
-      headers: { "Accept": "application/json" },
-    });
-
-    console.log("[API] Response status:", response.status, "ok:", response.ok, "url:", response.url?.slice(0, 80));
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.log("[API] HTTP error body:", text.slice(0, 500));
-      throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
-    }
-
-    const rawText = await response.text();
-    console.log("[API] Raw response length:", rawText.length, "preview:", rawText.slice(0, 300));
-
-    let json: ApiResponse<T>;
-    try {
-      json = JSON.parse(rawText) as ApiResponse<T>;
-    } catch (parseErr) {
-      console.log("[API] JSON parse error:", parseErr, "raw:", rawText.slice(0, 500));
-      throw new Error(`Invalid JSON response from API: ${rawText.slice(0, 100)}`);
-    }
-
-    if (!json.success) {
-      throw new Error(json.error ?? "Unknown API error");
-    }
-
-    console.log("[API] Success:", action, "data items:", Array.isArray(json.data) ? (json.data as unknown[]).length : "non-array");
-    return json.data as T;
-  } catch (fetchErr) {
-    console.log("[API] Fetch error for", action, ":", fetchErr);
-    throw fetchErr;
+  if (!json.success) {
+    throw new Error(json.error ?? "Unknown API error");
   }
+
+  return json.data as T;
 }
 
 async function apiPost(payload: SubmitPayload): Promise<SubmitResponse> {
@@ -166,30 +136,6 @@ export async function fetchTaskActualsData(): Promise<TaskActualRow[]> {
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
   console.log("[API] fetchAdminDashboardData");
   return apiGet<AdminDashboardData>("getAdminDashboardData");
-}
-
-export async function fetchCATaggedWeekly(weekStart?: string): Promise<CATaggedEntry[]> {
-  console.log("[API] fetchCATaggedWeekly, weekStart:", weekStart);
-  try {
-    const params: Record<string, string> = {};
-    if (weekStart) params.weekStart = weekStart;
-    return await apiGet<CATaggedEntry[]>("getCATaggedWeekly", params);
-  } catch (e) {
-    console.log("[API] fetchCATaggedWeekly failed (sheet may not exist):", e);
-    return [];
-  }
-}
-
-export async function fetchWeeklyLog(weekStart?: string): Promise<WeeklyLogEntry[]> {
-  console.log("[API] fetchWeeklyLog, weekStart:", weekStart);
-  try {
-    const params: Record<string, string> = {};
-    if (weekStart) params.weekStart = weekStart;
-    return await apiGet<WeeklyLogEntry[]>("getWeeklyLog", params);
-  } catch (e) {
-    console.log("[API] fetchWeeklyLog failed:", e);
-    return [];
-  }
 }
 
 export function isApiConfigured(): boolean {

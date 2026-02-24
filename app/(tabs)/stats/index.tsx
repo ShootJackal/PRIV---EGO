@@ -7,12 +7,9 @@ import {
   RefreshControl,
   Animated,
   ActivityIndicator,
-  TouchableOpacity,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Clock, CheckCircle, Target, Inbox, Calendar, Zap, Trophy, ChevronRight } from "lucide-react-native";
-import { router } from "expo-router";
-import * as Haptics from "expo-haptics";
+import { TrendingUp, Clock, CheckCircle, Target, Inbox, Calendar, Zap } from "lucide-react-native";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { fetchCollectorStats } from "../../../services/googleSheets";
@@ -33,7 +30,6 @@ function AnimatedBar({
   color: string;
   delay: number;
 }) {
-  const { colors } = useTheme();
   const widthAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -47,7 +43,7 @@ function AnimatedBar({
   }, [value, maxValue, delay, widthAnim]);
 
   return (
-    <View style={[barStyles.track, { backgroundColor: colors.bgInput }]}>
+    <View style={barStyles.track}>
       <Animated.View
         style={[
           barStyles.fill,
@@ -68,6 +64,7 @@ const barStyles = StyleSheet.create({
   track: {
     height: 6,
     borderRadius: 3,
+    backgroundColor: "rgba(128,128,128,0.1)",
     overflow: "hidden" as const,
   },
   fill: {
@@ -91,7 +88,7 @@ function HeroStat({
   color: string;
   index: number;
 }) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -113,23 +110,20 @@ function HeroStat({
     ]).start();
   }, [fadeAnim, slideAnim, index]);
 
-  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
-  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
-
   return (
     <Animated.View
       style={[
         styles.heroCard,
         {
-          backgroundColor: cardBg,
-          borderColor: cardBorder,
+          backgroundColor: colors.bgCard,
+          borderColor: colors.border,
           shadowColor: colors.shadow,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         },
       ]}
     >
-      <View style={[styles.heroIconWrap, { backgroundColor: color + "14" }]}>
+      <View style={[styles.heroIconWrap, { backgroundColor: color + "16" }]}>
         {icon}
       </View>
       <Text style={[styles.heroValue, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
@@ -160,7 +154,7 @@ function SmallStat({ label, value, color }: { label: string; value: string; colo
 }
 
 export default function StatsScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { selectedCollector, selectedCollectorName, selectedRig, todayLog, configured } =
     useCollection();
   const [refreshing, setRefreshing] = useState(false);
@@ -197,8 +191,13 @@ export default function StatsScreen() {
 
   const stats = statsQuery.data;
 
-  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
-  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
+  const cardShadow = {
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 4,
+  };
 
   if (!selectedCollector) {
     return (
@@ -228,36 +227,6 @@ export default function StatsScreen() {
         />
       }
     >
-      <TouchableOpacity
-        style={[
-          styles.leaderboardCard,
-          {
-            backgroundColor: isDark ? colors.gold + '10' : colors.gold + '0A',
-            borderColor: colors.gold + '30',
-            shadowColor: colors.shadow,
-          },
-        ]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push('/stats/leaderboard' as any);
-        }}
-        activeOpacity={0.75}
-        testID="leaderboard-btn"
-      >
-        <View style={[styles.leaderboardIcon, { backgroundColor: colors.gold + '18' }]}>
-          <Trophy size={20} color={colors.gold} />
-        </View>
-        <View style={styles.leaderboardInfo}>
-          <Text style={[styles.leaderboardTitle, { color: colors.textPrimary, fontFamily: 'Lexend_700Bold' }]}>
-            Weekly Leaderboard
-          </Text>
-          <Text style={[styles.leaderboardSub, { color: colors.textMuted, fontFamily: 'Lexend_400Regular' }]}>
-            See how you rank against the team
-          </Text>
-        </View>
-        <ChevronRight size={18} color={colors.gold} />
-      </TouchableOpacity>
-
       <View style={styles.pageHeader}>
         <View>
           <Text style={[styles.pageTitle, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
@@ -277,7 +246,7 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      <View style={styles.sectionHeader}>
+      <View style={[styles.sectionHeader]}>
         <Calendar size={13} color={colors.accent} />
         <Text style={[styles.sectionLabel, { color: colors.accent, fontFamily: "Lexend_700Bold" }]}>
           TODAY
@@ -319,7 +288,7 @@ export default function StatsScreen() {
         <View
           style={[
             styles.progressCard,
-            { backgroundColor: cardBg, borderColor: cardBorder },
+            { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
           ]}
         >
           <View style={styles.progressHeader}>
@@ -353,7 +322,7 @@ export default function StatsScreen() {
             </Text>
           </View>
 
-          <View style={[styles.weekCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={[styles.weekCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
             <View style={styles.weekRow}>
               <SmallStat
                 label="Hours"
@@ -403,7 +372,7 @@ export default function StatsScreen() {
           <View
             style={[
               styles.allTimeCard,
-              { backgroundColor: cardBg, borderColor: cardBorder },
+              { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
             ]}
           >
             <View style={styles.allTimeGrid}>
@@ -459,7 +428,7 @@ export default function StatsScreen() {
             <View
               style={[
                 styles.topTasksCard,
-                { backgroundColor: cardBg, borderColor: cardBorder },
+                { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
               ]}
             >
               <Text style={[styles.topTasksTitle, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
@@ -500,7 +469,7 @@ export default function StatsScreen() {
       )}
 
       {!stats && !statsQuery.isLoading && configured && (
-        <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+        <View style={[styles.infoCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <Text style={[styles.infoText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
             All-time stats appear once the Apps Script{"\n"}getCollectorStats endpoint is configured.
           </Text>
@@ -556,12 +525,12 @@ const styles = StyleSheet.create({
   heroCard: {
     flex: 1,
     minWidth: "44%" as unknown as number,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
     elevation: 3,
   },
   heroIconWrap: {
@@ -576,14 +545,10 @@ const styles = StyleSheet.create({
   heroLabel: { fontSize: 12, marginTop: 2 },
   heroSub: { fontSize: 11, marginTop: 4 },
   progressCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 18,
     marginBottom: 12,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
   },
   progressHeader: {
     flexDirection: "row" as const,
@@ -595,14 +560,10 @@ const styles = StyleSheet.create({
   progressPct: { fontSize: 17 },
   progressSub: { fontSize: 12, marginTop: 10 },
   weekCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 18,
     marginBottom: 12,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
   },
   weekRow: {
     flexDirection: "row" as const,
@@ -621,14 +582,10 @@ const styles = StyleSheet.create({
   },
   loadingText: { fontSize: 13 },
   allTimeCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
   },
   allTimeGrid: {
     flexDirection: "row" as const,
@@ -642,14 +599,10 @@ const styles = StyleSheet.create({
   allTimeDivider: { height: 1, marginBottom: 12 },
   allTimeSub: { fontSize: 11, marginTop: 8, textAlign: "center" as const },
   topTasksCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
   },
   topTasksTitle: {
     fontSize: 11,
@@ -680,27 +633,4 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17 },
   emptyText: { fontSize: 14, textAlign: "center" as const },
   spacer: { height: 20 },
-  leaderboardCard: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 20,
-    gap: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  leaderboardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  leaderboardInfo: { flex: 1 },
-  leaderboardTitle: { fontSize: 14 },
-  leaderboardSub: { fontSize: 11, marginTop: 1 },
 });

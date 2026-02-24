@@ -28,11 +28,7 @@ import {
   ClipboardList,
   BarChart3,
   LayoutDashboard,
-  Megaphone,
-  Plus,
-  X,
 } from "lucide-react-native";
-import { TextInput } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
@@ -94,9 +90,6 @@ function CompactTimer() {
   const progress = (totalSeconds - secondsLeft) / totalSeconds;
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
-
-  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
-  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   useEffect(() => {
     if (Platform.OS !== "web") {
@@ -204,15 +197,15 @@ function CompactTimer() {
 
   return (
     <Animated.View style={[timerStyles.card, {
-      backgroundColor: cardBg,
-      borderColor: cardBorder,
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
       shadowColor: colors.shadow,
       transform: [{ scale: pulseAnim }],
     }]}>
       <View style={timerStyles.row}>
         <View style={[timerStyles.timeCircle, {
           borderColor: ringColor,
-          backgroundColor: finished ? colors.cancel + '12' : running ? colors.accentSoft : colors.bgElevated,
+          backgroundColor: finished ? colors.cancel + '15' : running ? colors.accentSoft : colors.bgElevated,
         }]}>
           <Text style={[timerStyles.timeText, {
             color: finished ? colors.cancel : running ? colors.textPrimary : colors.textSecondary,
@@ -319,19 +312,10 @@ export default function ToolsScreen() {
     selectedRig,
     selectCollector,
     setSelectedRig,
-    announcements,
-    setAnnouncements,
   } = useCollection();
-
-  const [newAnnouncement, setNewAnnouncement] = useState("");
-  const [rigNumberInput, setRigNumberInput] = useState("");
-  const [showManualRig, setShowManualRig] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
-
-  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
-  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   useEffect(() => {
     Animated.parallel([
@@ -341,22 +325,7 @@ export default function ToolsScreen() {
   }, [fadeAnim, slideAnim]);
 
   const collectorOptions = useMemo(
-    () => collectors.map((c) => {
-      const sfRigs = c.rigs.filter((r) => /^EGO-PROD-(2|3|4|5|6|9)$/i.test(r.trim()));
-      const loc = sfRigs.length === c.rigs.length && c.rigs.length > 0
-        ? "SF"
-        : sfRigs.length === 0 && c.rigs.length > 0
-        ? "MX"
-        : c.rigs.length > 0
-        ? "SF/MX"
-        : "";
-      const locTag = loc ? ` [${loc}]` : "";
-      const rigList = c.rigs.length > 0 ? `  (${c.rigs.join(", ")})` : "";
-      return {
-        value: c.name,
-        label: `${c.name}${locTag}${rigList}`,
-      };
-    }),
+    () => collectors.map((c) => ({ value: c.name, label: c.name })),
     [collectors]
   );
 
@@ -428,49 +397,11 @@ export default function ToolsScreen() {
     [setSelectedRig]
   );
 
-  const handleRigNumberChange = useCallback(
-    (text: string) => {
-      const cleaned = text.replace(/[^0-9]/g, "");
-      setRigNumberInput(cleaned);
-      if (cleaned.length > 0) {
-        const rigId = `EGO-PROD-${cleaned}`;
-        setSelectedRig(rigId);
-      }
-    },
-    [setSelectedRig]
-  );
-
-  useEffect(() => {
-    if (selectedRig && selectedRig.startsWith("EGO-PROD-")) {
-      const num = selectedRig.replace("EGO-PROD-", "");
-      if (num !== rigNumberInput) {
-        setRigNumberInput(num);
-      }
-    }
-  }, [selectedRig]);
-
-  const handleAddAnnouncement = useCallback(() => {
-    const text = newAnnouncement.trim();
-    if (!text) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setAnnouncements([...announcements, text]);
-    setNewAnnouncement("");
-  }, [newAnnouncement, announcements, setAnnouncements]);
-
-  const handleRemoveAnnouncement = useCallback(
-    (index: number) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const updated = announcements.filter((_, i) => i !== index);
-      setAnnouncements(updated);
-    },
-    [announcements, setAnnouncements]
-  );
-
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: cardBg,
-      borderColor: cardBorder,
+      backgroundColor: colors.bgCard,
+      borderColor: colors.border,
       shadowColor: colors.shadow,
     },
   ];
@@ -518,76 +449,18 @@ export default function ToolsScreen() {
                     Your Rig
                   </Text>
                   {rigOptions.length > 0 ? (
-                    <>
-                      <View style={styles.rigChipsRow}>
-                        {rigOptions.map((r) => (
-                          <TouchableOpacity
-                            key={r.value}
-                            style={[
-                              styles.rigChip,
-                              {
-                                backgroundColor: r.value === selectedRig ? colors.accentSoft : colors.bgInput,
-                                borderColor: r.value === selectedRig ? colors.accent : colors.border,
-                              },
-                            ]}
-                            onPress={() => {
-                              handleSelectRig(r.value);
-                              const num = r.value.replace("EGO-PROD-", "");
-                              setRigNumberInput(num);
-                              setShowManualRig(false);
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Text
-                              style={[
-                                styles.rigChipText,
-                                {
-                                  color: r.value === selectedRig ? colors.accent : colors.textSecondary,
-                                  fontFamily: r.value === selectedRig ? "Lexend_600SemiBold" : "Lexend_400Regular",
-                                },
-                              ]}
-                            >
-                              {r.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                      {!showManualRig && (
-                        <TouchableOpacity
-                          style={[styles.manualRigBtn, { borderColor: colors.border }]}
-                          onPress={() => setShowManualRig(true)}
-                          activeOpacity={0.7}
-                        >
-                          <Plus size={12} color={colors.textMuted} />
-                          <Text style={[styles.manualRigBtnText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
-                            Different rig
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  ) : null}
-                  {(rigOptions.length === 0 || showManualRig) && (
-                    <View style={[styles.rigInputRow, { marginTop: rigOptions.length > 0 ? 8 : 0 }]}>
-                      <Text style={[styles.rigPrefix, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>EGO-PROD-</Text>
-                      <TextInput
-                        style={[
-                          styles.rigNumberInput,
-                          {
-                            backgroundColor: colors.bgInput,
-                            borderColor: colors.border,
-                            color: colors.textPrimary,
-                            fontFamily: "Lexend_700Bold",
-                          },
-                        ]}
-                        value={rigNumberInput}
-                        onChangeText={handleRigNumberChange}
-                        placeholder="#"
-                        placeholderTextColor={colors.textMuted}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        testID="rig-number-input"
-                      />
-                    </View>
+                    <SelectPicker
+                      label=""
+                      options={rigOptions}
+                      selectedValue={selectedRig}
+                      onValueChange={handleSelectRig}
+                      placeholder="Select your rig..."
+                      testID="rig-picker"
+                    />
+                  ) : (
+                    <Text style={[styles.noRigText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
+                      No rigs assigned to this collector
+                    </Text>
                   )}
                 </View>
               </View>
@@ -648,7 +521,6 @@ export default function ToolsScreen() {
             onPress={openSlack}
             testID="slack-link"
             colors={colors}
-            isDark={isDark}
           />
           <QuickCard
             title="Hubstaff"
@@ -658,7 +530,6 @@ export default function ToolsScreen() {
             onPress={openHubstaff}
             testID="hubstaff-link"
             colors={colors}
-            isDark={isDark}
           />
           <QuickCard
             title="Report"
@@ -668,7 +539,6 @@ export default function ToolsScreen() {
             onPress={openAirtableRigIssue}
             testID="airtable-link"
             colors={colors}
-            isDark={isDark}
           />
         </View>
 
@@ -702,88 +572,6 @@ export default function ToolsScreen() {
           })}
         </View>
 
-        <View style={styles.sectionGap} />
-        <SectionHeader label="Announcements" />
-
-        <View style={cardStyle}>
-          <View style={styles.announcementInputRow}>
-            <View style={[styles.settingIconWrap, { backgroundColor: isDark ? '#2A1B4E' : '#FDF3E0' }]}>
-              <Megaphone size={17} color={isDark ? colors.accent : colors.statusPending} />
-            </View>
-            <TextInput
-              style={[
-                styles.announcementInput,
-                {
-                  backgroundColor: colors.bgInput,
-                  borderColor: colors.border,
-                  color: colors.textPrimary,
-                  fontFamily: 'Lexend_400Regular',
-                },
-              ]}
-              value={newAnnouncement}
-              onChangeText={setNewAnnouncement}
-              placeholder="Type announcement..."
-              placeholderTextColor={colors.textMuted}
-              testID="announcement-input"
-            />
-            <TouchableOpacity
-              style={[
-                styles.announcementAddBtn,
-                {
-                  backgroundColor: newAnnouncement.trim() ? colors.accent : colors.bgInput,
-                },
-              ]}
-              onPress={handleAddAnnouncement}
-              activeOpacity={0.75}
-              disabled={!newAnnouncement.trim()}
-            >
-              <Plus size={16} color={newAnnouncement.trim() ? colors.white : colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          {announcements.length > 0 && (
-            <View style={[styles.announcementList, { borderTopColor: colors.border }]}>
-              {announcements.map((item, idx) => (
-                <View
-                  key={`ann_${idx}`}
-                  style={[
-                    styles.announcementItem,
-                    idx > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.announcementText,
-                      { color: colors.textPrimary, fontFamily: 'Lexend_400Regular' },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {item}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => handleRemoveAnnouncement(idx)}
-                    activeOpacity={0.6}
-                    style={[styles.announcementRemove, { backgroundColor: colors.cancelBg }]}
-                  >
-                    <X size={12} color={colors.cancel} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {announcements.length === 0 && (
-            <Text
-              style={[
-                styles.announcementEmpty,
-                { color: colors.textMuted, fontFamily: 'Lexend_400Regular' },
-              ]}
-            >
-              No active announcements. Add one to show on the LIVE ticker.
-            </Text>
-          )}
-        </View>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </Animated.View>
@@ -798,7 +586,6 @@ function QuickCard({
   onPress,
   testID,
   colors,
-  isDark,
 }: {
   title: string;
   subtitle: string;
@@ -807,12 +594,8 @@ function QuickCard({
   onPress: () => void;
   testID: string;
   colors: ReturnType<typeof useTheme>["colors"];
-  isDark: boolean;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
-  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   const onPressIn = useCallback(() => {
     Animated.spring(scaleAnim, {
@@ -843,8 +626,8 @@ function QuickCard({
         style={[
           styles.quickCard,
           {
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
+            backgroundColor: colors.bgCard,
+            borderColor: colors.border,
             shadowColor: colors.shadow,
           },
         ]}
@@ -868,13 +651,13 @@ function QuickCard({
 
 const timerStyles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     padding: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 4,
     marginBottom: 2,
   },
   row: {
@@ -931,10 +714,10 @@ const timerStyles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center" as const,
     justifyContent: "center" as const,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   progressBar: {
     height: 3,
@@ -977,12 +760,12 @@ const styles = StyleSheet.create({
   },
   sectionGap: { height: 24 },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden" as const,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
     elevation: 3,
     marginBottom: 2,
   },
@@ -1008,52 +791,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase" as const,
   },
   settingDivider: { height: 1, marginLeft: 66 },
-  rigInputRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-  },
-  rigPrefix: {
-    fontSize: 15,
-  },
-  rigNumberInput: {
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 17,
-    width: 56,
-    textAlign: "center" as const,
-  },
-  rigChipsRow: {
-    flexDirection: "row" as const,
-    flexWrap: "wrap" as const,
-    gap: 6,
-    marginTop: 8,
-  },
-  rigChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  rigChipText: {
-    fontSize: 11,
-  },
-  manualRigBtn: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    marginTop: 6,
+  noRigText: {
+    fontSize: 13,
+    fontStyle: "italic" as const,
     paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: "dashed" as const,
-    alignSelf: "flex-start" as const,
-  },
-  manualRigBtnText: {
-    fontSize: 11,
   },
   profileBadge: {
     flexDirection: "row" as const,
@@ -1090,7 +831,7 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     justifyContent: "center" as const,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.07,
     shadowRadius: 10,
     elevation: 3,
   },
@@ -1121,54 +862,4 @@ const styles = StyleSheet.create({
   },
   sheetRowText: { flex: 1, fontSize: 15 },
   bottomSpacer: { height: 20 },
-  announcementInputRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  announcementInput: {
-    flex: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 13,
-    borderWidth: 1,
-  },
-  announcementAddBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  announcementList: {
-    borderTopWidth: 1,
-  },
-  announcementItem: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  announcementText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  announcementRemove: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  announcementEmpty: {
-    fontSize: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    lineHeight: 17,
-  },
 });
