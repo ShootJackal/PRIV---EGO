@@ -47,18 +47,23 @@ interface Props {
 export default function AppLoadingScreen({ onFinish }: Props) {
   const [lines, setLines] = useState<string[]>([]);
   const [bootComplete, setBootComplete] = useState(false);
+  const [percent, setPercent] = useState(0);
   const fadeOut = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const cursorAnim = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.7)).current;
+  const logoScale = useRef(new Animated.Value(0.85)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const terminalOpacity = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0.06)).current;
   const enterOpacity = useRef(new Animated.Value(0)).current;
-  const enterPulse = useRef(new Animated.Value(0.92)).current;
-  const enterGlow = useRef(new Animated.Value(0.3)).current;
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
+
+  useEffect(() => {
+    const id = progressAnim.addListener(({ value }) => {
+      setPercent(Math.round(value * 100));
+    });
+    return () => progressAnim.removeListener(id);
+  }, [progressAnim]);
 
   useEffect(() => {
     Animated.parallel([
@@ -66,60 +71,37 @@ export default function AppLoadingScreen({ onFinish }: Props) {
         toValue: 1,
         useNativeDriver: true,
         tension: 35,
-        friction: 8,
+        friction: 9,
       }),
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 900,
+        duration: 1100,
         useNativeDriver: true,
       }),
     ]).start();
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 0.18,
-          duration: 2500,
-          useNativeDriver: false,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0.05,
-          duration: 2500,
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-
     setTimeout(() => {
       Animated.timing(terminalOpacity, {
         toValue: 1,
-        duration: 500,
+        duration: 600,
         useNativeDriver: true,
       }).start();
-    }, 800);
+    }, 1000);
 
     const shuffled = [...ALL_LINES].sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, 10);
 
     const blink = Animated.loop(
       Animated.sequence([
-        Animated.timing(cursorAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cursorAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
+        Animated.timing(cursorAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(cursorAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
       ])
     );
     blink.start();
 
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 11000,
+      duration: 13000,
       useNativeDriver: false,
     }).start();
 
@@ -131,14 +113,14 @@ export default function AppLoadingScreen({ onFinish }: Props) {
       timers.push(
         setTimeout(() => {
           setLines((prev) => [...prev, `> ${line}`]);
-        }, 900 + i * 900)
+        }, 1100 + i * 1050)
       );
     });
 
     timers.push(
       setTimeout(() => {
         setLines((prev) => [...prev, "[ OK ] All systems nominal. Welcome, Collector."]);
-      }, 900 + selected.length * 900)
+      }, 1100 + selected.length * 1050)
     );
 
     timers.push(
@@ -147,38 +129,10 @@ export default function AppLoadingScreen({ onFinish }: Props) {
         setBootComplete(true);
         Animated.timing(enterOpacity, {
           toValue: 1,
-          duration: 600,
+          duration: 500,
           useNativeDriver: true,
         }).start();
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(enterPulse, {
-              toValue: 1.04,
-              duration: 1400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(enterPulse, {
-              toValue: 0.96,
-              duration: 1400,
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(enterGlow, {
-              toValue: 0.7,
-              duration: 1200,
-              useNativeDriver: false,
-            }),
-            Animated.timing(enterGlow, {
-              toValue: 0.25,
-              duration: 1200,
-              useNativeDriver: false,
-            }),
-          ])
-        ).start();
-      }, 1800 + selected.length * 900)
+      }, 2200 + selected.length * 1050)
     );
 
     return () => {
@@ -192,47 +146,33 @@ export default function AppLoadingScreen({ onFinish }: Props) {
     logoScale,
     logoOpacity,
     terminalOpacity,
-    glowAnim,
     enterOpacity,
-    enterPulse,
-    enterGlow,
   ]);
 
   const handleEnter = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(fadeOut, {
-        toValue: 0,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-      Animated.timing(logoScale, {
-        toValue: 1.1,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
+    Animated.timing(fadeOut, {
+      toValue: 0,
+      duration: 600,
+      useNativeDriver: true,
+    }).start(() => {
       onFinishRef.current();
     });
-  }, [fadeOut, logoScale]);
+  }, [fadeOut]);
 
   return (
     <Animated.View style={[s.container, { opacity: fadeOut }]}>
-      <Animated.View style={[s.bgGlow, { opacity: glowAnim }]} />
-      <View style={s.bgGlowSmall} />
-
       <Animated.View
         style={[
           s.logoWrap,
           { opacity: logoOpacity, transform: [{ scale: logoScale }] },
         ]}
       >
-        <View style={s.logoIconBox}>
-          <Image
-            source={require("../assets/images/taskflow-logo.png")}
-            style={s.logoIcon}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={require("../assets/images/taskflow-logo.png")}
+          style={s.logoIcon}
+          resizeMode="contain"
+        />
+        <Text style={s.appName}>TASKFLOW</Text>
         <Text style={s.logoSub}>EGO COLLECTION INTELLIGENCE</Text>
       </Animated.View>
 
@@ -243,7 +183,7 @@ export default function AppLoadingScreen({ onFinish }: Props) {
             <View style={[s.dot, { backgroundColor: "#FEBC2E" }]} />
             <View style={[s.dot, { backgroundColor: "#28C840" }]} />
           </View>
-          <Text style={s.headerTitle}>taskflow — boot sequence</Text>
+          <Text style={s.headerTitle}>taskflow — boot</Text>
         </View>
 
         <View style={s.body}>
@@ -266,18 +206,21 @@ export default function AppLoadingScreen({ onFinish }: Props) {
           )}
         </View>
 
-        <View style={s.progressTrack}>
-          <Animated.View
-            style={[
-              s.progressFill,
-              {
-                width: progressAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ["0%", "100%"],
-                }),
-              },
-            ]}
-          />
+        <View style={s.progressSection}>
+          <View style={s.progressTrack}>
+            <Animated.View
+              style={[
+                s.progressFill,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0%", "100%"],
+                  }),
+                },
+              ]}
+            />
+          </View>
+          <Text style={s.percentText}>{percent}%</Text>
         </View>
       </Animated.View>
 
@@ -285,18 +228,13 @@ export default function AppLoadingScreen({ onFinish }: Props) {
         <Animated.View style={[s.enterWrap, { opacity: enterOpacity }]}>
           <TouchableOpacity
             onPress={handleEnter}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
             testID="enter-system-btn"
           >
-            <Animated.View
-              style={[s.enterBtn, { transform: [{ scale: enterPulse }] }]}
-            >
-              <Animated.View
-                style={[s.enterBtnGlow, { opacity: enterGlow }]}
-              />
-              <Text style={s.enterText}>ENTER SYSTEM</Text>
-              <Text style={s.enterSub}>tap to continue</Text>
-            </Animated.View>
+            <View style={s.enterBtn}>
+              <Text style={s.enterText}>ENTER</Text>
+              <Text style={s.enterArrow}>→</Text>
+            </View>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -309,102 +247,77 @@ export default function AppLoadingScreen({ onFinish }: Props) {
 const s = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#08060E",
+    backgroundColor: "#0F0D16",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
-    gap: 24,
-  },
-  bgGlow: {
-    position: "absolute",
-    top: "12%",
-    left: "50%",
-    marginLeft: -180,
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    backgroundColor: "#7C3AED",
-  },
-  bgGlowSmall: {
-    position: "absolute",
-    bottom: "18%",
-    right: "15%",
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "#6D28D9",
-    opacity: 0.04,
+    gap: 20,
   },
   logoWrap: {
     alignItems: "center",
-    gap: 12,
-  },
-  logoIconBox: {
-    shadowColor: "#A78BFA",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 35,
-    elevation: 24,
+    gap: 8,
   },
   logoIcon: {
-    width: 260,
-    height: 75,
-    tintColor: "#E8E0FF",
+    width: 72,
+    height: 72,
+    marginBottom: 6,
+  },
+  appName: {
+    color: "#E0D8F0",
+    fontSize: 24,
+    fontFamily: "Lexend_700Bold",
+    letterSpacing: 8,
   },
   logoSub: {
-    color: "#5C5075",
+    color: "#443D58",
     fontSize: 9,
     fontFamily: "Courier New",
-    letterSpacing: 3.5,
+    letterSpacing: 3,
     textTransform: "uppercase",
+    marginTop: 2,
   },
   terminal: {
     width: SCREEN_WIDTH - 48,
-    maxWidth: 420,
-    backgroundColor: "#0D0B16",
-    borderRadius: 18,
+    maxWidth: 400,
+    backgroundColor: "#13111C",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#2A2640",
+    borderColor: "#23212E",
     overflow: "hidden",
-    shadowColor: "#7C3AED",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 20,
   },
   headerBar: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    padding: 11,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#1E1A2E",
-    backgroundColor: "#0A0814",
+    borderBottomColor: "#1D1B28",
+    backgroundColor: "#100E18",
   },
   dotRow: {
     flexDirection: "row",
     gap: 6,
   },
   dot: {
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
     borderRadius: 5,
   },
   headerTitle: {
-    color: "#5C5075",
+    color: "#443D58",
     fontSize: 11,
-    fontFamily: FONT_MONO,
+    fontFamily: "Courier New",
     letterSpacing: 0.5,
   },
   body: {
-    padding: 16,
-    minHeight: 200,
+    padding: 14,
+    minHeight: 180,
   },
   line: {
-    color: "#A78BFA",
-    fontSize: 12,
-    fontFamily: FONT_MONO,
-    lineHeight: 24,
+    color: "#8B7FC0",
+    fontSize: 11.5,
+    fontFamily: "Courier New",
+    lineHeight: 22,
     letterSpacing: 0.3,
   },
   cmdLine: {
@@ -415,61 +328,69 @@ const s = StyleSheet.create({
     fontWeight: "700" as const,
   },
   cursor: {
-    color: "#A78BFA",
+    color: "#8B7FC0",
     fontSize: 14,
-    fontFamily: FONT_MONO,
+    fontFamily: "Courier New",
     marginTop: 2,
   },
+  progressSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    gap: 10,
+  },
   progressTrack: {
+    flex: 1,
     height: 3,
-    backgroundColor: "#1A1A2E",
+    backgroundColor: "#1A182A",
+    borderRadius: 2,
+    overflow: "hidden",
   },
   progressFill: {
     height: 3,
     backgroundColor: "#7C3AED",
     borderRadius: 2,
-    shadowColor: "#7C3AED",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
+  },
+  percentText: {
+    color: "#443D58",
+    fontSize: 10,
+    fontFamily: "Courier New",
+    letterSpacing: 0.5,
+    width: 32,
+    textAlign: "right" as const,
   },
   enterWrap: {
-    marginTop: 8,
+    marginTop: 10,
     alignItems: "center",
   },
   enterBtn: {
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: "#7C3AED50",
-    backgroundColor: "#7C3AED18",
+    flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    overflow: "hidden",
-  },
-  enterBtnGlow: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#7C3AED",
-    borderRadius: 28,
+    gap: 8,
+    paddingHorizontal: 34,
+    paddingVertical: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.2)",
+    backgroundColor: "rgba(167,139,250,0.05)",
   },
   enterText: {
-    color: "#E8E0FF",
-    fontSize: 15,
-    fontFamily: FONT_MONO,
-    fontWeight: "800" as const,
+    color: "#C4B5FD",
+    fontSize: 12,
+    fontFamily: "Courier New",
+    fontWeight: "700" as const,
     letterSpacing: 3,
   },
-  enterSub: {
-    color: "#7C5CBF",
-    fontSize: 10,
-    fontFamily: FONT_MONO,
-    letterSpacing: 1,
+  enterArrow: {
+    color: "#A78BFA",
+    fontSize: 16,
+    fontFamily: "Courier New",
   },
   versionTag: {
-    color: "#2E2840",
+    color: "#2A2640",
     fontSize: 10,
-    fontFamily: FONT_MONO,
+    fontFamily: "Courier New",
     letterSpacing: 1.5,
     position: "absolute",
     bottom: 40,

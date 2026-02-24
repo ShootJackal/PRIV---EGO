@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Sun, Moon, Trash2, BookOpen, ChevronRight, Trophy } from "lucide-react-native";
+import { Sun, Moon, BookOpen, ChevronRight, Trophy } from "lucide-react-native";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -37,7 +37,7 @@ interface TerminalLine {
   color?: string;
 }
 
-function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoading: boolean }) {
+function CmdTerminalFeed({ lines, isLoading, onHeaderPress }: { lines: TerminalLine[]; isLoading: boolean; onHeaderPress?: () => void }) {
   const { colors, isDark } = useTheme();
   const fadeAnims = useRef<{ [key: string]: Animated.Value }>({});
   const cursorAnim = useRef(new Animated.Value(0)).current;
@@ -71,7 +71,7 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
 
   return (
     <View style={cmdStyles.feed}>
-      <View style={[cmdStyles.headerBar, { borderBottomColor: termDim + '44' }]}>
+      <TouchableOpacity onPress={onHeaderPress} activeOpacity={0.9} style={[cmdStyles.headerBar, { borderBottomColor: termDim + '44' }]}>
         <View style={cmdStyles.dotRow}>
           <View style={[cmdStyles.dot, { backgroundColor: '#FF5F57' }]} />
           <View style={[cmdStyles.dot, { backgroundColor: '#FEBC2E' }]} />
@@ -80,7 +80,7 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
         <Text style={[cmdStyles.headerTitle, { color: termDim, fontFamily: FONT_MONO }]}>
           ego-system — live
         </Text>
-      </View>
+      </TouchableOpacity>
 
       {lines.map((line) => {
         if (!fadeAnims.current[line.id]) {
@@ -160,6 +160,35 @@ function LiveClock() {
   );
 }
 
+function SunProgressBar() {
+  const [sunData, setSunData] = useState({ progress: 0, color: '#2a2a4e' });
+
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const hour = now.getHours() + now.getMinutes() / 60;
+      const progress = Math.max(0, Math.min(1, (hour - 6) / 14));
+      let color = '#2a2a4e';
+      if (hour >= 6 && hour < 7.5) color = '#F97316';
+      else if (hour >= 7.5 && hour < 10) color = '#60A5FA';
+      else if (hour >= 10 && hour < 14) color = '#38BDF8';
+      else if (hour >= 14 && hour < 17) color = '#60A5FA';
+      else if (hour >= 17 && hour < 19) color = '#F97316';
+      else if (hour >= 19 && hour < 20) color = '#A855F7';
+      setSunData({ progress, color });
+    };
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <View style={{ width: 60, height: 1.5, borderRadius: 1, overflow: "hidden" as const, backgroundColor: 'rgba(128,128,128,0.12)' }}>
+      <View style={{ width: `${Math.max(sunData.progress * 100, 3)}%` as any, height: 1.5, backgroundColor: sunData.color, borderRadius: 1 }} />
+    </View>
+  );
+}
+
 interface TickerSegment {
   id: string;
   pill: string;
@@ -168,7 +197,7 @@ interface TickerSegment {
   text: string;
 }
 
-function MultiTicker({
+function NewsTicker({
   segments,
   colors,
   isDark,
@@ -179,7 +208,7 @@ function MultiTicker({
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const pillSlide = useRef(new Animated.Value(-100)).current;
 
   useEffect(() => {
     if (segments.length === 0) return;
@@ -192,13 +221,21 @@ function MultiTicker({
       const seg = segments[currentIdx % segments.length];
       setActiveIdx(currentIdx % segments.length);
 
-      const textWidth = seg.text.length * 7.5 + 300;
+      pillSlide.setValue(-100);
+      Animated.spring(pillSlide, {
+        toValue: 0,
+        speed: 22,
+        bounciness: 3,
+        useNativeDriver: true,
+      }).start();
+
+      const isAnnouncement = seg.pill === "ALERT";
       const isRecollect = seg.pill === "RECOLLECT";
-      const speed = isRecollect ? 12 : seg.pill === "STATS" ? 22 : 16;
-      const duration = Math.max(textWidth * speed, 3500);
+      const textWidth = seg.text.length * 7 + 350;
+      const speed = isAnnouncement ? 28 : isRecollect ? 14 : 20;
+      const duration = Math.max(textWidth * speed, 4000);
 
       scrollX.setValue(SCREEN_WIDTH);
-      fadeAnim.setValue(1);
 
       Animated.timing(scrollX, {
         toValue: -textWidth,
@@ -207,34 +244,49 @@ function MultiTicker({
       }).start(() => {
         currentIdx += 1;
         if (!cancelled) {
-          setTimeout(runSegment, 200);
+          setTimeout(runSegment, 400);
         }
       });
     };
 
     runSegment();
     return () => { cancelled = true; };
-  }, [segments, scrollX, fadeAnim]);
+  }, [segments, scrollX, pillSlide]);
 
   if (segments.length === 0) return null;
 
   const active = segments[activeIdx % segments.length];
   if (!active) return null;
 
+  const isAnnouncement = active.pill === "ALERT";
+
   return (
-    <View style={tickerStyles.container}>
-      <View style={[tickerStyles.pill, { backgroundColor: active.pillBg, borderColor: active.pillColor + '55' }]}>
-        <Text style={[tickerStyles.pillText, { color: active.pillColor, fontFamily: FONT_MONO }]}>
+    <View style={ntStyles.container}>
+      <Animated.View
+        style={[
+          ntStyles.pillWrap,
+          {
+            backgroundColor: active.pillBg,
+            borderRightColor: active.pillColor + '30',
+            transform: [{ translateX: pillSlide }],
+          },
+        ]}
+      >
+        <View style={[ntStyles.pillDot, { backgroundColor: active.pillColor }]} />
+        <Text style={[ntStyles.pillText, { color: active.pillColor, fontFamily: FONT_MONO }]}>
           {active.pill}
         </Text>
-      </View>
-      <View style={tickerStyles.scrollArea}>
+      </Animated.View>
+      <View style={ntStyles.scrollArea}>
         <Animated.Text
           style={[
-            tickerStyles.text,
+            ntStyles.scrollText,
             {
               color: active.pillColor,
               fontFamily: FONT_MONO,
+              fontWeight: isAnnouncement ? "800" as const : "500" as const,
+              fontSize: isAnnouncement ? 12 : 11,
+              letterSpacing: isAnnouncement ? 0.5 : 0.3,
               transform: [{ translateX: scrollX }],
             },
           ]}
@@ -267,6 +319,16 @@ const TUTORIAL_STEPS = [
   { num: "04", title: "Check Rankings", desc: "Hit the Leaderboard in Stats to see your rank" },
 ];
 
+const EASTER_EGG_LINES = [
+  "$ whoami → root (just kidding)",
+  "$ cat /dev/random → *rig noises*",
+  "$ uptime → 420 days, 6:09",
+  "$ fortune → You will collect many hours today",
+  "$ cowsay 'moo' → 🐄",
+  "$ sudo make me a sandwich → okay.",
+  "$ ping ego-hq → 64 bytes: time=0.42ms",
+];
+
 export default function LiveScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -282,6 +344,8 @@ export default function LiveScreen() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nameGlow = useRef(new Animated.Value(0.4)).current;
   const fakeDeleteFade = useRef(new Animated.Value(0)).current;
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     Animated.loop(
@@ -340,9 +404,9 @@ export default function LiveScreen() {
       segs.push({
         id: "ann",
         pill: "ALERT",
-        pillBg: "#F59E0B20",
+        pillBg: "#F59E0B15",
         pillColor: isDark ? "#FBBF24" : "#B45309",
-        text: announcements.join("    ·    "),
+        text: "▸  " + announcements.join("  │  "),
       });
     }
 
@@ -350,9 +414,9 @@ export default function LiveScreen() {
       segs.push({
         id: "rec",
         pill: "RECOLLECT",
-        pillBg: isDark ? "#F8717120" : "#DC262620",
+        pillBg: isDark ? "#F8717115" : "#DC262615",
         pillColor: isDark ? "#F87171" : "#DC2626",
-        text: recollectItems.join("    ·    "),
+        text: "▸  " + recollectItems.join("  │  ") + "  ↻",
       });
     }
 
@@ -362,15 +426,15 @@ export default function LiveScreen() {
       top5.forEach((e) => {
         statsTexts.push(`${e.collectorName}: ${e.weeklyHours}h`);
       });
-      statsTexts.push("Check out the Leaderboard!");
+      statsTexts.push("★ Leaderboard");
     }
     if (statsTexts.length > 0) {
       segs.push({
         id: "stats",
         pill: "STATS",
-        pillBg: isDark ? "#34D39920" : "#0D7D4A20",
+        pillBg: isDark ? "#34D39915" : "#0D7D4A15",
         pillColor: isDark ? "#34D399" : "#0D7D4A",
-        text: statsTexts.join("    ·    "),
+        text: "▸  " + statsTexts.join("  │  "),
       });
     }
 
@@ -378,9 +442,9 @@ export default function LiveScreen() {
       segs.push({
         id: "idle",
         pill: "SYSTEM",
-        pillBg: colors.accent + "18",
+        pillBg: colors.accent + "12",
         pillColor: colors.accent,
-        text: "No pending alerts — all systems nominal",
+        text: "▸  All systems nominal — no pending alerts",
       });
     }
 
@@ -497,6 +561,10 @@ export default function LiveScreen() {
       lines.push({ id: `ann_${ts}_d`, text: "", type: "empty" });
     }
 
+    const easterEgg = EASTER_EGG_LINES[Math.floor(Math.random() * EASTER_EGG_LINES.length)];
+    lines.push({ id: `ee_${ts}`, text: easterEgg, type: "cmd" });
+    lines.push({ id: `ee_${ts}_d`, text: "", type: "empty" });
+
     lines.push({ id: `sys2_${ts}`, text: "═".repeat(40), type: "divider" });
     lines.push({ id: `rd_${ts}`, text: `LAST REDASH PULL: ${lastRefresh}`, type: "label" });
 
@@ -558,6 +626,19 @@ export default function LiveScreen() {
     return () => timers.forEach(clearTimeout);
   }, [fakeDeleting, fakeDeleteFade]);
 
+  const handleTerminalTap = useCallback(() => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    if (tapCountRef.current >= 5) {
+      tapCountRef.current = 0;
+      handleFakeDelete();
+    } else {
+      tapTimerRef.current = setTimeout(() => {
+        tapCountRef.current = 0;
+      }, 3000);
+    }
+  }, [handleFakeDelete]);
+
   const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
   const bgMain = isDark ? colors.bg : '#FAF7F0';
 
@@ -580,7 +661,7 @@ export default function LiveScreen() {
         >
           T A S K F L O W
         </Animated.Text>
-        <View style={[styles.brandLine, { backgroundColor: colors.accent + '30' }]} />
+        <SunProgressBar />
       </View>
 
       <View style={[styles.header, {
@@ -589,8 +670,7 @@ export default function LiveScreen() {
         borderColor: isDark ? '#2A2A30' : '#DDD8C6',
       }]}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>SYSTEM</Text>
-          <Text style={[styles.headerSub, { color: colors.textMuted, fontFamily: FONT_MONO }]}>LIVE FEED</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: FONT_MONO }]}>SYSTEM · LIVE</Text>
         </View>
         <View style={styles.headerRight}>
           <View style={[
@@ -602,7 +682,7 @@ export default function LiveScreen() {
           ]}>
             <View style={[styles.statusDot, { backgroundColor: isOnline ? livePillColor : colors.cancel }]} />
             <Text style={[styles.liveText, { color: isOnline ? livePillColor : colors.cancel, fontFamily: FONT_MONO }]}>
-              {isOnline ? "LIVE" : "OFFLINE"}
+              {isOnline ? "LIVE" : "OFF"}
             </Text>
           </View>
           <Text style={[styles.rigCount, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
@@ -639,21 +719,6 @@ export default function LiveScreen() {
           <BookOpen size={14} color={colors.accent} />
           <Text style={[styles.actionBtnText, { color: colors.textSecondary, fontFamily: FONT_MONO }]}>
             GUIDE
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#2B0F0F' : '#FEE2E2',
-            borderColor: isDark ? '#F8717130' : '#FCA5A530',
-          }]}
-          onPress={handleFakeDelete}
-          activeOpacity={0.7}
-          testID="fake-delete"
-        >
-          <Trash2 size={14} color={isDark ? "#F87171" : "#DC2626"} />
-          <Text style={[styles.actionBtnText, { color: isDark ? "#F87171" : "#DC2626", fontFamily: FONT_MONO }]}>
-            DELETE
           </Text>
         </TouchableOpacity>
 
@@ -749,15 +814,15 @@ export default function LiveScreen() {
           borderColor: isDark ? '#222228' : '#DDD8C6',
           shadowColor: isDark ? colors.accent : '#1A1400',
         }]}>
-          <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} />
+          <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} onHeaderPress={handleTerminalTap} />
         </View>
       </ScrollView>
 
       <View style={[styles.tickerBar, {
-        backgroundColor: isDark ? '#141416' : '#F0EDE3',
-        borderTopColor: isDark ? '#222228' : '#DDD8C6',
+        backgroundColor: isDark ? '#111114' : '#EDE9DF',
+        borderTopColor: isDark ? '#1E1E24' : '#D8D3C4',
       }]}>
-        <MultiTicker segments={tickerSegments} colors={colors} isDark={isDark} />
+        <NewsTicker segments={tickerSegments} colors={colors} isDark={isDark} />
       </View>
     </View>
   );
@@ -819,35 +884,40 @@ const clockStyles = StyleSheet.create({
   },
 });
 
-const tickerStyles = StyleSheet.create({
+const ntStyles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    height: 36,
+    height: 32,
     overflow: "hidden",
   },
-  pill: {
+  pillWrap: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginLeft: 10,
-    marginRight: 8,
+    gap: 5,
+    borderRightWidth: 1,
+    zIndex: 2,
+  },
+  pillDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
   pillText: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: "800" as const,
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
   },
   scrollArea: {
     flex: 1,
     overflow: "hidden",
-    height: 36,
+    height: 32,
     justifyContent: "center",
+    paddingLeft: 10,
   },
-  text: {
-    fontSize: 11,
-    letterSpacing: 0.3,
+  scrollText: {
     width: 3000,
   },
 });
@@ -858,23 +928,18 @@ const styles = StyleSheet.create({
   },
   clockRow: {
     alignItems: "center",
-    paddingTop: 2,
+    paddingTop: 6,
     paddingBottom: 4,
   },
   brandRow: {
     alignItems: "center",
-    paddingBottom: 8,
-    gap: 4,
+    paddingBottom: 10,
+    gap: 6,
   },
   brandName: {
     fontSize: 12,
     fontWeight: "800" as const,
     letterSpacing: 6,
-  },
-  brandLine: {
-    width: 60,
-    height: 1.5,
-    borderRadius: 1,
   },
   header: {
     flexDirection: "row",
@@ -883,7 +948,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginHorizontal: 12,
-    marginBottom: 6,
+    marginBottom: 8,
     borderRadius: 16,
     borderWidth: 1,
     shadowOffset: { width: 0, height: 4 },
@@ -896,12 +961,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900" as const,
     letterSpacing: 2,
-  },
-  headerSub: {
-    fontSize: 9,
-    letterSpacing: 1.5,
-    marginTop: 1,
-    fontWeight: "600" as const,
   },
   headerRight: {
     alignItems: "flex-end",
@@ -936,7 +995,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 12,
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   actionBtn: {
     flex: 1,
@@ -955,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   tutorialCard: {
     marginHorizontal: 12,
-    marginBottom: 6,
+    marginBottom: 8,
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,

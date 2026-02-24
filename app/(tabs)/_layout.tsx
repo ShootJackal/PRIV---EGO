@@ -203,12 +203,10 @@ function TaskFlowHeader() {
     <View style={[hStyles.wrap, { backgroundColor: colors.bg }]}>
       <Image
         source={require("../../assets/images/taskflow-logo.png")}
-        style={[
-          hStyles.logo,
-          { tintColor: isDark ? colors.accentLight : colors.accent, opacity: 0.9 },
-        ]}
+        style={hStyles.logoIcon}
         resizeMode="contain"
       />
+      <Text style={[hStyles.appNameText, { color: colors.textPrimary }]}>TaskFlow</Text>
     </View>
   );
 }
@@ -365,9 +363,16 @@ const hStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 2,
+    gap: 8,
   },
-  logo: {
-    width: 130,
-    height: 34,
+  logoIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+  },
+  appNameText: {
+    fontSize: 17,
+    fontFamily: "Lexend_700Bold",
+    letterSpacing: -0.3,
   },
 });

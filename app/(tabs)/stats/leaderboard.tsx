@@ -483,7 +483,7 @@ function VSScreen({
 
         <View style={[vsStyles.teamSide, { borderColor: "#EF444430" }]}>
           <View style={[vsStyles.teamCircle, { backgroundColor: "#EF444415", borderColor: "#EF4444" }]}>
-            <Text style={vsStyles.teamEmoji}>🇲🇽</Text>
+            <Text style={vsStyles.teamEmoji}>📍</Text>
           </View>
           <Text style={[vsStyles.teamLabel, { color: "#EF4444", fontFamily: "Lexend_700Bold" }]}>MX</Text>
           <Text style={[vsStyles.teamCount, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
@@ -651,7 +651,7 @@ export default function LeaderboardScreen() {
   const TABS: { id: TabId; label: string; color?: string }[] = [
     { id: "ALL", label: "ALL" },
     { id: "SF", label: "SF 🌉", color: "#3B82F6" },
-    { id: "MX", label: "MX 🇲🇽", color: "#EF4444" },
+    { id: "MX", label: "MX 📍", color: "#EF4444" },
     { id: "VS", label: "⚔️ VS" },
   ];
 

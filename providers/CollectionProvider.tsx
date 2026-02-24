@@ -38,6 +38,8 @@ function normalizeCollectorName(name: string): string {
 
 const SF_RIG_PATTERN = /^EGO-PROD-(2|3|4|5|6|9)$/i;
 
+const ADMIN_NAMES = new Set(["tony a", "travis b", "veronika t"]);
+
 function isSFRig(rigId: string): boolean {
   return SF_RIG_PATTERN.test(rigId.trim());
 }
@@ -417,12 +419,23 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     await AsyncStorage.setItem(STORAGE_KEYS.SELECTED_RIG, rig);
   }, []);
 
+  const isAdmin = useMemo(() => {
+    const name = normalizeCollectorName(selectedCollectorName).toLowerCase();
+    return ADMIN_NAMES.has(name);
+  }, [selectedCollectorName]);
+
   const setAnnouncements = useCallback(async (items: string[]) => {
+    const name = normalizeCollectorName(selectedCollectorName).toLowerCase();
+    if (!ADMIN_NAMES.has(name)) {
+      console.log("[Provider] Non-admin tried to set announcements:", name);
+      Alert.alert("Not Authorized", "Only team leads can post announcements.");
+      return;
+    }
     console.log("[Provider] setAnnouncements:", items.length, "items");
     setAnnouncementsState(items);
     await AsyncStorage.setItem(STORAGE_KEYS.ANNOUNCEMENTS, JSON.stringify(items));
     queryClient.invalidateQueries({ queryKey: ["localAnnouncements"] });
-  }, [queryClient]);
+  }, [queryClient, selectedCollectorName]);
 
   const addActivityEntry = useCallback(
     async (
@@ -575,6 +588,7 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     hoursToLog,
     notes,
 
+    isAdmin,
     isLoadingCollectors: collectorQuery.isLoading,
     isLoadingTasks: taskQuery.isLoading,
     isLoadingLog: todayLogQuery.isLoading,
