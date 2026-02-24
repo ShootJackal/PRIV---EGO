@@ -60,132 +60,174 @@ export interface ThemeColors {
   recollectRedBg: string;
   statsGreen: string;
   statsGreenBg: string;
+
+  mxOrange: string;
+  mxOrangeBg: string;
+  sfBlue: string;
+  sfBlueBg: string;
+
+  gold: string;
+  goldBg: string;
+  silver: string;
+  silverBg: string;
+  bronze: string;
+  bronzeBg: string;
+
+  cardDepth: string;
 }
 
 export const LightTheme: ThemeColors = {
-  bg: '#FAF7F0',
-  bgSecondary: '#F2EFE5',
+  bg: '#FAF8F3',
+  bgSecondary: '#F3F0E8',
   bgCard: '#FFFFFF',
-  bgInput: '#F0EDE4',
-  bgElevated: '#E8E5DC',
-  border: '#E0DCD0',
-  borderLight: '#EAE7DC',
-  borderFocus: '#7C3AED',
+  bgInput: '#F5F2EB',
+  bgElevated: '#EBE8E0',
+  border: '#E5E1D8',
+  borderLight: '#EDEAD2',
+  borderFocus: '#8B6FC0',
 
-  textPrimary: '#1A1A1A',
-  textSecondary: '#5A5647',
-  textMuted: '#9A9584',
+  textPrimary: '#1C1917',
+  textSecondary: '#57534E',
+  textMuted: '#A8A29E',
 
   accent: '#7C3AED',
-  accentLight: '#8B5CF6',
-  accentDim: '#DDD6FE',
-  accentSoft: '#F3F0FF',
+  accentLight: '#9461F5',
+  accentDim: '#E2D9F3',
+  accentSoft: '#F5F0FF',
 
   assign: '#7C3AED',
-  assignBg: '#F3F0FF',
-  complete: '#0D7C4A',
-  completeBg: '#E0F5EB',
-  cancel: '#DC2626',
+  assignBg: '#F5F0FF',
+  complete: '#2D8A56',
+  completeBg: '#E8F5EE',
+  cancel: '#C53030',
   cancelBg: '#FDE8E8',
 
-  statusActive: '#0D7C4A',
-  statusPending: '#C27800',
-  statusCancelled: '#DC2626',
+  statusActive: '#2D8A56',
+  statusPending: '#B8860B',
+  statusCancelled: '#C53030',
 
   white: '#FFFFFF',
   black: '#000000',
 
-  slack: '#4A154B',
-  slackBg: '#F8F0F8',
-  hubstaff: '#0D8A40',
-  hubstaffBg: '#E5F8ED',
-  airtable: '#C27800',
+  slack: '#5B3A6B',
+  slackBg: '#F5EFF8',
+  hubstaff: '#2D8A56',
+  hubstaffBg: '#E8F5EE',
+  airtable: '#B8860B',
   airtableBg: '#FEF5E5',
-  sheets: '#0D8A40',
-  sheetsBg: '#E5F8ED',
+  sheets: '#2D8A56',
+  sheetsBg: '#E8F5EE',
 
   tabBar: '#FFFFFF',
   tabBarBorder: 'transparent',
 
-  skeleton: '#E0DCD0',
-  overlay: 'rgba(0,0,0,0.22)',
+  skeleton: '#E5E1D8',
+  overlay: 'rgba(0,0,0,0.18)',
 
   shadow: '#1A1400',
-  shadowCard: 'rgba(26, 20, 0, 0.08)',
+  shadowCard: 'rgba(26, 20, 0, 0.06)',
 
   terminal: '#7C3AED',
-  terminalBg: '#FAF7F0',
-  terminalGreen: '#0D7C4A',
-  terminalDim: '#9A9584',
+  terminalBg: '#FAF8F3',
+  terminalGreen: '#2D8A56',
+  terminalDim: '#A8A29E',
 
-  alertYellow: '#CA8A04',
-  alertYellowBg: '#FEF9C3',
-  recollectRed: '#DC2626',
-  recollectRedBg: '#FEE2E2',
-  statsGreen: '#0D7C4A',
-  statsGreenBg: '#DCFCE7',
+  alertYellow: '#A67C00',
+  alertYellowBg: '#FFF8E1',
+  recollectRed: '#C53030',
+  recollectRedBg: '#FFF0F0',
+  statsGreen: '#2D8A56',
+  statsGreenBg: '#E8F8EE',
+
+  mxOrange: '#C47A3A',
+  mxOrangeBg: '#FFF3E8',
+  sfBlue: '#4A6FA5',
+  sfBlueBg: '#EEF3FA',
+
+  gold: '#B8860B',
+  goldBg: '#FFF8E1',
+  silver: '#6B7280',
+  silverBg: '#F3F4F6',
+  bronze: '#A0522D',
+  bronzeBg: '#FDF0E8',
+
+  cardDepth: 'rgba(0,0,0,0.03)',
 };
 
 export const DarkTheme: ThemeColors = {
-  bg: '#0E0E10',
-  bgSecondary: '#161618',
-  bgCard: '#1A1A1F',
-  bgInput: '#1E1E24',
-  bgElevated: '#26262E',
-  border: '#2A2A32',
-  borderLight: '#32323A',
+  bg: '#121214',
+  bgSecondary: '#18181B',
+  bgCard: '#1E1E22',
+  bgInput: '#222226',
+  bgElevated: '#2A2A2E',
+  border: '#2E2E34',
+  borderLight: '#36363C',
   borderFocus: '#A78BFA',
 
-  textPrimary: '#F0EDFA',
-  textSecondary: '#A09AAE',
-  textMuted: '#5A5568',
+  textPrimary: '#EDEDF0',
+  textSecondary: '#9E9DA6',
+  textMuted: '#5C5B66',
 
   accent: '#A78BFA',
   accentLight: '#C4B5FD',
-  accentDim: '#2E1F5E',
-  accentSoft: '#1C1530',
+  accentDim: '#2A1F4E',
+  accentSoft: '#1A1530',
 
   assign: '#A78BFA',
-  assignBg: '#1C1530',
-  complete: '#34D399',
-  completeBg: '#0A1F18',
-  cancel: '#F87171',
-  cancelBg: '#2A0808',
+  assignBg: '#1A1530',
+  complete: '#5EBD8A',
+  completeBg: '#0D1F18',
+  cancel: '#E87070',
+  cancelBg: '#200D0D',
 
-  statusActive: '#34D399',
-  statusPending: '#FBBF24',
-  statusCancelled: '#F87171',
+  statusActive: '#5EBD8A',
+  statusPending: '#D4A843',
+  statusCancelled: '#E87070',
 
   white: '#FFFFFF',
   black: '#000000',
 
-  slack: '#D090D2',
-  slackBg: '#201020',
-  hubstaff: '#34D399',
-  hubstaffBg: '#0A1A10',
-  airtable: '#FBBF24',
-  airtableBg: '#1A1204',
-  sheets: '#34D399',
-  sheetsBg: '#0A1A10',
+  slack: '#C490C8',
+  slackBg: '#1C101D',
+  hubstaff: '#5EBD8A',
+  hubstaffBg: '#0D1A12',
+  airtable: '#D4A843',
+  airtableBg: '#1A1408',
+  sheets: '#5EBD8A',
+  sheetsBg: '#0D1A12',
 
-  tabBar: '#1A1A1F',
+  tabBar: '#1E1E22',
   tabBarBorder: 'transparent',
 
-  skeleton: '#2A2A32',
-  overlay: 'rgba(0,0,0,0.65)',
+  skeleton: '#2E2E34',
+  overlay: 'rgba(0,0,0,0.6)',
 
   shadow: '#000000',
-  shadowCard: 'rgba(0, 0, 0, 0.45)',
+  shadowCard: 'rgba(0, 0, 0, 0.35)',
 
   terminal: '#A78BFA',
-  terminalBg: '#0E0E10',
-  terminalGreen: '#34D399',
-  terminalDim: '#4A4458',
+  terminalBg: '#121214',
+  terminalGreen: '#5EBD8A',
+  terminalDim: '#4A4958',
 
-  alertYellow: '#FBBF24',
-  alertYellowBg: '#1A1604',
-  recollectRed: '#F87171',
-  recollectRedBg: '#1A0808',
-  statsGreen: '#34D399',
-  statsGreenBg: '#0A1A10',
+  alertYellow: '#D4A843',
+  alertYellowBg: '#1A1608',
+  recollectRed: '#E87070',
+  recollectRedBg: '#1A0C0C',
+  statsGreen: '#5EBD8A',
+  statsGreenBg: '#0D1A12',
+
+  mxOrange: '#E8A060',
+  mxOrangeBg: '#1F1508',
+  sfBlue: '#7BA3D4',
+  sfBlueBg: '#0D1520',
+
+  gold: '#D4A843',
+  goldBg: '#1A1608',
+  silver: '#9CA3AF',
+  silverBg: '#1E1E22',
+  bronze: '#C87B52',
+  bronzeBg: '#1A1208',
+
+  cardDepth: 'rgba(255,255,255,0.02)',
 };

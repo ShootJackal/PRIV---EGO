@@ -21,11 +21,71 @@ import {
   AlertCircle,
   Circle,
   Info,
+  Clock,
+  Send,
 } from "lucide-react-native";
 import { useCollection } from "../../providers/CollectionProvider";
 import { useTheme } from "../../providers/ThemeProvider";
 import SelectPicker from "../../components/SelectPicker";
 import ActionButton from "../../components/ActionButton";
+
+function LogEntryRow({ entry, statusColor, colors, isLast }: {
+  entry: { taskName: string; status: string; loggedHours: number; plannedHours: number; remainingHours: number; notes: string };
+  statusColor: string;
+  colors: any;
+  isLast: boolean;
+}) {
+  const isActive = entry.status === "In Progress" || entry.status === "Partial";
+  const pct = entry.plannedHours > 0 ? Math.min(entry.loggedHours / entry.plannedHours, 1) : 0;
+
+  return (
+    <View style={[logStyles.row, !isLast && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
+      <View style={logStyles.rowLeft}>
+        <View style={[logStyles.statusStripe, { backgroundColor: statusColor }]} />
+        <View style={logStyles.rowContent}>
+          <Text style={[logStyles.taskName, { color: colors.textPrimary }]} numberOfLines={1}>
+            {entry.taskName}
+          </Text>
+          <View style={logStyles.metaRow}>
+            <View style={[logStyles.statusBadge, { backgroundColor: statusColor + '14' }]}>
+              <Text style={[logStyles.statusText, { color: statusColor }]}>
+                {entry.status}
+              </Text>
+            </View>
+            <Text style={[logStyles.hours, { color: colors.textMuted }]}>
+              {entry.loggedHours}h / {entry.plannedHours}h
+            </Text>
+            {entry.remainingHours > 0 && (
+              <Text style={[logStyles.remaining, { color: colors.statusPending }]}>
+                {entry.remainingHours}h left
+              </Text>
+            )}
+          </View>
+          {isActive && (
+            <View style={[logStyles.progressTrack, { backgroundColor: colors.bgInput }]}>
+              <View style={[logStyles.progressFill, { backgroundColor: statusColor, width: `${Math.round(pct * 100)}%` as any }]} />
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const logStyles = StyleSheet.create({
+  row: { paddingVertical: 10 },
+  rowLeft: { flexDirection: "row" as const, gap: 10 },
+  statusStripe: { width: 3, borderRadius: 2, minHeight: 30 },
+  rowContent: { flex: 1 },
+  taskName: { fontSize: 13, fontWeight: "600" as const, marginBottom: 4 },
+  metaRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 8, flexWrap: "wrap" as const },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  statusText: { fontSize: 10, fontWeight: "600" as const },
+  hours: { fontSize: 11 },
+  remaining: { fontSize: 11, fontWeight: "500" as const },
+  progressTrack: { height: 3, borderRadius: 2, marginTop: 6, overflow: "hidden" as const },
+  progressFill: { height: 3, borderRadius: 2 },
+});
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
@@ -59,12 +119,12 @@ export default function DashboardScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, speed: 18, bounciness: 5, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
     ]).start();
   }, [fadeAnim, slideAnim]);
 
@@ -80,7 +140,6 @@ export default function DashboardScreen() {
 
   const canSubmit = !!selectedCollectorName && !!selectedTaskName;
   const latestOpenTask = openTasks.length > 0 ? openTasks[0] : null;
-
   const plannedHoursHint = latestOpenTask ? latestOpenTask.plannedHours : 0;
 
   const handleRefresh = useCallback(async () => {
@@ -90,21 +149,15 @@ export default function DashboardScreen() {
   }, [refreshData]);
 
   const handleAssign = useCallback(async () => {
-    try {
-      await assignTask();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to assign task";
-      Alert.alert("Error", msg);
+    try { await assignTask(); } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to assign task");
     }
   }, [assignTask]);
 
   const handleComplete = useCallback(async () => {
     if (!latestOpenTask) return;
-    try {
-      await completeTask(latestOpenTask.taskName);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to complete task";
-      Alert.alert("Error", msg);
+    try { await completeTask(latestOpenTask.taskName); } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to complete task");
     }
   }, [completeTask, latestOpenTask]);
 
@@ -112,28 +165,18 @@ export default function DashboardScreen() {
     if (!latestOpenTask) return;
     Alert.alert("Cancel Task", `Cancel "${latestOpenTask.taskName}"?`, [
       { text: "No", style: "cancel" },
-      {
-        text: "Yes",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await cancelTask(latestOpenTask.taskName);
-          } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : "Failed to cancel";
-            Alert.alert("Error", msg);
-          }
-        },
-      },
+      { text: "Yes", style: "destructive", onPress: async () => {
+        try { await cancelTask(latestOpenTask.taskName); } catch (e: unknown) {
+          Alert.alert("Error", e instanceof Error ? e.message : "Failed to cancel");
+        }
+      }},
     ]);
   }, [cancelTask, latestOpenTask]);
 
   const handleAddNote = useCallback(async () => {
     if (!latestOpenTask || !notes.trim()) return;
-    try {
-      await addNote(latestOpenTask.taskName);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to save note";
-      Alert.alert("Error", msg);
+    try { await addNote(latestOpenTask.taskName); } catch (e: unknown) {
+      Alert.alert("Error", e instanceof Error ? e.message : "Failed to save note");
     }
   }, [addNote, latestOpenTask, notes]);
 
@@ -144,7 +187,7 @@ export default function DashboardScreen() {
     return { completed, totalLogged, totalPlanned, total: todayLog.length };
   }, [todayLog]);
 
-  const statusColor = useCallback((status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     if (status === "Completed") return colors.statusActive;
     if (status === "Partial") return colors.statusPending;
     if (status === "Canceled") return colors.statusCancelled;
@@ -153,10 +196,10 @@ export default function DashboardScreen() {
 
   const cardShadow = {
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.09,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   };
 
   return (
@@ -164,55 +207,39 @@ export default function DashboardScreen() {
       style={[styles.flex, { backgroundColor: colors.bg }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Animated.View
-        style={[
-          styles.flex,
-          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
-        ]}
-      >
+      <Animated.View style={[styles.flex, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
         <ScrollView
           style={styles.container}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.accent}
-              colors={[colors.accent]}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />
           }
         >
           <View style={styles.header}>
-            <View>
-              <Text style={[styles.greeting, { color: colors.textMuted }]}>
-                {configured ? "Collection Hub" : "Offline Mode"}
+            <View style={styles.headerLeft}>
+              <Text style={[styles.pageLabel, { color: colors.accent }]}>
+                COLLECT
               </Text>
               <Text style={[styles.title, { color: colors.textPrimary }]}>
-                {selectedCollector
-                  ? `${selectedCollector.name.split(" ")[0]}'s Workspace`
-                  : "Let's Collect"}
+                {selectedCollector ? `${selectedCollector.name.split(" ")[0]}'s Workspace` : "Collection Hub"}
               </Text>
               {selectedRig !== "" && (
-                <Text style={[styles.rigLabel, { color: colors.textMuted }]}>
-                  {selectedRig}
-                </Text>
+                <Text style={[styles.rigLabel, { color: colors.textMuted }]}>{selectedRig}</Text>
               )}
             </View>
             {openTasks.length > 0 && (
-              <View style={[styles.activePill, { backgroundColor: colors.accentSoft }]}>
-                <Circle size={7} color={colors.accent} fill={colors.accent} />
-                <Text style={[styles.activePillText, { color: colors.accent }]}>
-                  {openTasks.length} open
-                </Text>
+              <View style={[styles.openPill, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
+                <Circle size={6} color={colors.accent} fill={colors.accent} />
+                <Text style={[styles.openPillText, { color: colors.accent }]}>{openTasks.length} open</Text>
               </View>
             )}
           </View>
 
           {!configured && (
             <View style={[styles.notice, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
-              <AlertCircle size={15} color={colors.statusPending} />
+              <AlertCircle size={14} color={colors.statusPending} />
               <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
                 Set EXPO_PUBLIC_GOOGLE_SCRIPT_URL to connect
               </Text>
@@ -220,42 +247,9 @@ export default function DashboardScreen() {
           )}
 
           {!!submitError && (
-            <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
-              <AlertCircle size={15} color={colors.cancel} />
+            <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "25" }]}>
+              <AlertCircle size={14} color={colors.cancel} />
               <Text style={[styles.noticeText, { color: colors.cancel }]}>{submitError}</Text>
-            </View>
-          )}
-
-          {selectedCollectorName !== "" && todayLog.length > 0 && (
-            <View style={[styles.statsRow, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.textPrimary }]}>{todayStats.total}</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Tasks</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.complete }]}>{todayStats.completed}</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Done</Text>
-              </View>
-              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.accent }]}>{todayStats.totalLogged.toFixed(1)}h</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Logged</Text>
-              </View>
-            </View>
-          )}
-
-          {latestOpenTask && (
-            <View style={[styles.activeTaskBanner, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
-              <Circle size={8} color={colors.accent} fill={colors.accent} />
-              <View style={styles.activeTaskInfo}>
-                <Text style={[styles.activeTaskName, { color: colors.accent }]} numberOfLines={1}>
-                  {latestOpenTask.taskName}
-                </Text>
-                <Text style={[styles.activeTaskMeta, { color: colors.accentLight }]}>
-                  In Progress · {latestOpenTask.loggedHours}h / {latestOpenTask.plannedHours}h planned
-                </Text>
-              </View>
             </View>
           )}
 
@@ -301,11 +295,7 @@ export default function DashboardScreen() {
                 <Text style={[styles.optionalTag, { color: colors.textMuted }]}>optional</Text>
               </View>
               <TextInput
-                style={[styles.input, {
-                  backgroundColor: colors.bgInput,
-                  borderColor: colors.border,
-                  color: colors.textPrimary,
-                }]}
+                style={[styles.input, { backgroundColor: colors.bgInput, borderColor: colors.border, color: colors.textPrimary }]}
                 value={hoursToLog}
                 onChangeText={setHoursToLog}
                 placeholder="0.00"
@@ -315,9 +305,9 @@ export default function DashboardScreen() {
               />
               {latestOpenTask && plannedHoursHint > 0 && (
                 <View style={styles.hintRow}>
-                  <Info size={11} color={colors.statusPending} />
+                  <Info size={10} color={colors.statusPending} />
                   <Text style={[styles.hintText, { color: colors.statusPending }]}>
-                    Planned chunk: {plannedHoursHint}h — you can log more if needed
+                    Planned chunk: {plannedHoursHint}h
                   </Text>
                 </View>
               )}
@@ -331,11 +321,7 @@ export default function DashboardScreen() {
                 <Text style={[styles.optionalTag, { color: colors.textMuted }]}>optional</Text>
               </View>
               <TextInput
-                style={[styles.input, styles.notesInput, {
-                  backgroundColor: colors.bgInput,
-                  borderColor: colors.border,
-                  color: colors.textPrimary,
-                }]}
+                style={[styles.input, styles.notesInput, { backgroundColor: colors.bgInput, borderColor: colors.border, color: colors.textPrimary }]}
                 value={notes}
                 onChangeText={setNotes}
                 placeholder="Add notes..."
@@ -351,7 +337,7 @@ export default function DashboardScreen() {
           <View style={styles.actionsRow}>
             <ActionButton
               title="Assign"
-              icon={<UserCheck size={16} color={colors.assign} />}
+              icon={<UserCheck size={15} color={colors.assign} />}
               color={colors.assign}
               bgColor={colors.assignBg}
               onPress={handleAssign}
@@ -361,7 +347,7 @@ export default function DashboardScreen() {
             />
             <ActionButton
               title="Done"
-              icon={<CheckCircle size={16} color={colors.complete} />}
+              icon={<CheckCircle size={15} color={colors.complete} />}
               color={colors.complete}
               bgColor={colors.completeBg}
               onPress={handleComplete}
@@ -371,7 +357,7 @@ export default function DashboardScreen() {
             />
             <ActionButton
               title="Cancel"
-              icon={<XCircle size={16} color={colors.cancel} />}
+              icon={<XCircle size={15} color={colors.cancel} />}
               color={colors.cancel}
               bgColor={colors.cancelBg}
               onPress={handleCancel}
@@ -384,7 +370,7 @@ export default function DashboardScreen() {
           {latestOpenTask !== null && notes.trim().length > 0 && (
             <ActionButton
               title="Save Note Only"
-              icon={<StickyNote size={16} color={colors.accent} />}
+              icon={<StickyNote size={15} color={colors.accent} />}
               color={colors.accent}
               bgColor={colors.accentSoft}
               onPress={handleAddNote}
@@ -395,33 +381,32 @@ export default function DashboardScreen() {
             />
           )}
 
-          {todayLog.length > 0 && (
-            <View style={[styles.logSection, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
-              <Text style={[styles.logTitle, { color: colors.textMuted }]}>
-                {"Today's Log"}
-              </Text>
-              {isLoadingLog && (
-                <ActivityIndicator size="small" color={colors.accent} style={{ marginBottom: 8 }} />
-              )}
-              {todayLog.slice(0, 10).map((entry, idx) => (
-                <View
-                  key={entry.assignmentId || `log_${idx}`}
-                  style={[
-                    styles.logItem,
-                    { borderBottomColor: colors.border },
-                    idx === Math.min(todayLog.length - 1, 9) && styles.logItemLast,
-                  ]}
-                >
-                  <View style={[styles.logDot, { backgroundColor: statusColor(entry.status) }]} />
-                  <View style={styles.logInfo}>
-                    <Text style={[styles.logName, { color: colors.textPrimary }]} numberOfLines={1}>
-                      {entry.taskName}
-                    </Text>
-                    <Text style={[styles.logMeta, { color: colors.textMuted }]}>
-                      {entry.status} · {entry.loggedHours}h / {entry.plannedHours}h
-                    </Text>
-                  </View>
+          {selectedCollectorName !== "" && todayLog.length > 0 && (
+            <View style={[styles.logCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+              <View style={styles.logHeader}>
+                <View style={styles.logHeaderLeft}>
+                  <Clock size={12} color={colors.textMuted} />
+                  <Text style={[styles.logTitle, { color: colors.textMuted }]}>{"Today's Activity"}</Text>
                 </View>
+                <View style={styles.logStats}>
+                  <Text style={[styles.logStatText, { color: colors.complete }]}>
+                    {todayStats.completed} done
+                  </Text>
+                  <Text style={[styles.logStatDivider, { color: colors.border }]}>|</Text>
+                  <Text style={[styles.logStatText, { color: colors.accent }]}>
+                    {todayStats.totalLogged.toFixed(1)}h
+                  </Text>
+                </View>
+              </View>
+              {isLoadingLog && <ActivityIndicator size="small" color={colors.accent} style={{ marginBottom: 6 }} />}
+              {todayLog.slice(0, 12).map((entry, idx) => (
+                <LogEntryRow
+                  key={entry.assignmentId || `log_${idx}`}
+                  entry={entry}
+                  statusColor={getStatusColor(entry.status)}
+                  colors={colors}
+                  isLast={idx === Math.min(todayLog.length - 1, 11)}
+                />
               ))}
             </View>
           )}
@@ -441,141 +426,63 @@ const styles = StyleSheet.create({
     flexDirection: "row" as const,
     justifyContent: "space-between" as const,
     alignItems: "flex-start" as const,
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  greeting: {
-    fontSize: 12,
-    fontWeight: "600" as const,
-    letterSpacing: 0.6,
-    marginBottom: 3,
-    textTransform: "uppercase" as const,
-  },
-  title: {
-    fontSize: 24,
+  headerLeft: {},
+  pageLabel: {
+    fontSize: 10,
     fontWeight: "700" as const,
-    letterSpacing: -0.6,
+    letterSpacing: 2,
+    marginBottom: 4,
   },
-  rigLabel: {
-    fontSize: 13,
-    fontWeight: "500" as const,
-    marginTop: 2,
-  },
-  activePill: {
+  title: { fontSize: 22, fontWeight: "700" as const, letterSpacing: -0.4 },
+  rigLabel: { fontSize: 12, fontWeight: "500" as const, marginTop: 2 },
+  openPill: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: 8,
+    borderWidth: 1,
     marginTop: 6,
   },
-  activePillText: {
-    fontSize: 12,
-    fontWeight: "600" as const,
-  },
+  openPillText: { fontSize: 11, fontWeight: "600" as const },
   notice: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     borderRadius: 12,
     padding: 12,
-    marginBottom: 14,
-    gap: 10,
-    borderWidth: 1,
-  },
-  noticeText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  statsRow: {
-    flexDirection: "row" as const,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-  },
-  statItem: { flex: 1, alignItems: "center" as const },
-  statNum: { fontSize: 20, fontWeight: "700" as const },
-  statLabel: { fontSize: 11, fontWeight: "500" as const, marginTop: 2 },
-  statDivider: { width: 1 },
-  activeTaskBanner: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 10,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 14,
-    borderWidth: 1,
-  },
-  activeTaskInfo: { flex: 1 },
-  activeTaskName: { fontSize: 13, fontWeight: "700" as const },
-  activeTaskMeta: { fontSize: 12, marginTop: 1 },
-  formCard: {
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-  },
-  formField: { paddingVertical: 2 },
-  fieldLabel: { fontSize: 12, fontWeight: "700" as const, marginBottom: 8, letterSpacing: 0.4, textTransform: "uppercase" as const },
-  fieldRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    justifyContent: "space-between" as const,
-    marginBottom: 8,
-  },
-  optionalTag: { fontSize: 11, fontWeight: "500" as const },
-  separator: { height: 1, marginVertical: 12 },
-  input: {
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontWeight: "500" as const,
-    borderWidth: 1,
-  },
-  notesInput: { minHeight: 64, fontSize: 14 },
-  hintRow: {
-    flexDirection: "row" as const,
-    alignItems: "flex-start" as const,
-    gap: 5,
-    marginTop: 7,
-  },
-  hintText: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: "500" as const,
-  },
-  actionsRow: {
-    flexDirection: "row" as const,
-    gap: 8,
-    marginBottom: 10,
-  },
-  logSection: {
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 10,
-    borderWidth: 1,
-  },
-  logTitle: {
-    fontSize: 11,
-    fontWeight: "700" as const,
-    letterSpacing: 1,
     marginBottom: 12,
-    textTransform: "uppercase" as const,
+    gap: 10,
+    borderWidth: 1,
   },
-  logItem: {
+  noticeText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  formCard: { borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1 },
+  formField: { paddingVertical: 2 },
+  fieldLabel: { fontSize: 11, fontWeight: "700" as const, marginBottom: 6, letterSpacing: 0.4, textTransform: "uppercase" as const },
+  fieldRow: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "space-between" as const, marginBottom: 6 },
+  optionalTag: { fontSize: 10, fontWeight: "500" as const },
+  separator: { height: 1, marginVertical: 10 },
+  input: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, fontWeight: "500" as const, borderWidth: 1 },
+  notesInput: { minHeight: 56, fontSize: 13 },
+  hintRow: { flexDirection: "row" as const, alignItems: "flex-start" as const, gap: 5, marginTop: 6 },
+  hintText: { flex: 1, fontSize: 11, lineHeight: 15, fontWeight: "500" as const },
+  actionsRow: { flexDirection: "row" as const, gap: 8, marginBottom: 10 },
+  logCard: { borderRadius: 16, padding: 14, marginTop: 10, borderWidth: 1 },
+  logHeader: {
     flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
     alignItems: "center" as const,
-    paddingVertical: 10,
+    marginBottom: 8,
+    paddingBottom: 8,
     borderBottomWidth: 1,
+    borderBottomColor: "rgba(128,128,128,0.08)",
   },
-  logItemLast: { borderBottomWidth: 0 },
-  logDot: { width: 7, height: 7, borderRadius: 4, marginRight: 12 },
-  logInfo: { flex: 1 },
-  logName: { fontSize: 14, fontWeight: "600" as const },
-  logMeta: { fontSize: 12, marginTop: 2 },
+  logHeaderLeft: { flexDirection: "row" as const, alignItems: "center" as const, gap: 5 },
+  logTitle: { fontSize: 10, fontWeight: "700" as const, letterSpacing: 1, textTransform: "uppercase" as const },
+  logStats: { flexDirection: "row" as const, alignItems: "center" as const, gap: 6 },
+  logStatText: { fontSize: 11, fontWeight: "600" as const },
+  logStatDivider: { fontSize: 10 },
   spacer: { height: 20 },
 });

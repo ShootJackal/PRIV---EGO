@@ -173,7 +173,7 @@ function BootSequence({ onComplete }: { onComplete: () => void }) {
 
   const accentColor = colors.accent;
   const dimColor = colors.terminalDim;
-  const bgColor = isDark ? '#0A0A0C' : '#FAF7F0';
+  const bgColor = isDark ? '#0C0C0E' : '#FAF8F3';
 
   return (
     <Animated.View style={[bootStyles.container, { backgroundColor: bgColor, opacity: fadeOut }]}>

@@ -77,8 +77,8 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
   const BOTTOM_PAD = insets.bottom > 0 ? insets.bottom : 12;
 
   const gradientColors = isDark
-    ? ['transparent', 'rgba(14,14,16,0.6)', 'rgba(14,14,16,0.92)', 'rgba(14,14,16,0.99)'] as const
-    : ['transparent', 'rgba(250,247,240,0.6)', 'rgba(250,247,240,0.92)', 'rgba(250,247,240,0.99)'] as const;
+    ? ['transparent', 'rgba(18,18,20,0.6)', 'rgba(18,18,20,0.92)', 'rgba(18,18,20,0.99)'] as const
+    : ['transparent', 'rgba(250,248,243,0.6)', 'rgba(250,248,243,0.92)', 'rgba(250,248,243,0.99)'] as const;
 
   return (
     <View style={[barStyles.outerWrap, { paddingBottom: BOTTOM_PAD }]}>
@@ -92,9 +92,9 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
         style={[
           barStyles.island,
           {
-            backgroundColor: isDark ? '#1A1A1F' : '#FFFFFF',
+            backgroundColor: isDark ? '#1E1E22' : '#FFFFFF',
             shadowColor: isDark ? '#000' : '#1A1400',
-            borderColor: isDark ? '#2A2A32' : '#E0DCD0',
+            borderColor: isDark ? '#2E2E34' : '#E5E1D8',
           },
         ]}
       >

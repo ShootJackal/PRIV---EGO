@@ -11,7 +11,7 @@ import {
   Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RefreshCw, Sun, Moon, BookOpen, Trophy, X } from "lucide-react-native";
+import { RefreshCw, Sun, Moon, BookOpen, Trophy, X, User, BarChart3 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
@@ -19,33 +19,12 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTodayLog, fetchCollectorStats, fetchRecollections, isApiConfigured } from "../../../services/googleSheets";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
 const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
-
 const SF_KNOWN_NAMES = new Set(["tony a", "veronika t", "travis b"]);
-
-const FUNNY_LOADING_LINES = [
-  "Booting EGO intelligence core...",
-  "Making sure both hands are in frame...",
-  "Raising daily collection hours to 7hrs...",
-  "Making EGO RIGs heavier...",
-  "Calibrating the vibes...",
-  "Polishing camera lenses remotely...",
-  "Convincing rigs to cooperate...",
-  "Asking Redash nicely for data...",
-  "Untangling USB cables mentally...",
-  "Checking if Travis remembered his badge...",
-  "Syncing with the mothership...",
-  "Deploying collection drones... jk...",
-  "Running rig diagnostics... beep boop...",
-  "Warming up the data pipeline...",
-  "Counting hours... carry the 1...",
-];
 
 function normalizeCollectorName(name: string): string {
   return name.replace(/\s*\(.*?\)\s*$/g, "").trim();
 }
-
 function normForMatch(name: string): string {
   return normalizeCollectorName(name).toLowerCase().replace(/\.$/, "").trim();
 }
@@ -53,13 +32,105 @@ function normForMatch(name: string): string {
 interface TerminalLine {
   id: string;
   text: string;
-  type: "header" | "data" | "divider" | "empty" | "label" | "cmd";
+  type: "header" | "data" | "divider" | "empty" | "label" | "cmd" | "prompt";
   color?: string;
 }
 
-function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoading: boolean }) {
+interface TickerSegment {
+  label: string;
+  color: string;
+  bgColor: string;
+  items: string[];
+  speed: number;
+}
+
+function NewsTicker({ segments }: { segments: TickerSegment[] }) {
   const { colors, isDark } = useTheme();
-  const fadeAnims = useRef<{ [key: string]: Animated.Value }>({});
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const pillSlide = useRef(new Animated.Value(0)).current;
+  const pillOpacity = useRef(new Animated.Value(1)).current;
+  const contentOpacity = useRef(new Animated.Value(1)).current;
+
+  const seg = segments[activeIndex] ?? segments[0];
+
+  useEffect(() => {
+    if (segments.length <= 1) return;
+    const interval = setInterval(() => {
+      Animated.parallel([
+        Animated.timing(pillOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(contentOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(pillSlide, { toValue: -40, duration: 250, useNativeDriver: true }),
+      ]).start(() => {
+        setActiveIndex((prev) => (prev + 1) % segments.length);
+        pillSlide.setValue(30);
+        Animated.parallel([
+          Animated.timing(pillOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.spring(pillSlide, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
+        ]).start();
+      });
+    }, 7000);
+    return () => clearInterval(interval);
+  }, [segments.length, pillOpacity, contentOpacity, pillSlide]);
+
+  const tickerText = seg ? seg.items.join("     |     ") : "";
+
+  useEffect(() => {
+    if (!seg) return;
+    const totalWidth = tickerText.length * 7 + 600;
+    scrollX.setValue(SCREEN_WIDTH * 0.6);
+    const duration = Math.max(totalWidth * (seg.speed || 28), 8000);
+    const anim = Animated.loop(
+      Animated.timing(scrollX, { toValue: -totalWidth, duration, useNativeDriver: true })
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [tickerText, scrollX, seg?.speed, activeIndex]);
+
+  if (!seg) return null;
+
+  return (
+    <View style={[tickerStyles.container, {
+      backgroundColor: isDark ? '#161618' : '#F8F6F0',
+      borderBottomColor: isDark ? '#222228' : '#E8E4DA',
+    }]}>
+      <Animated.View style={[tickerStyles.pillWrap, {
+        opacity: pillOpacity,
+        transform: [{ translateX: pillSlide }],
+      }]}>
+        <View style={[tickerStyles.pill, { backgroundColor: seg.color + '18' }]}>
+          <View style={[tickerStyles.pillDot, { backgroundColor: seg.color }]} />
+          <Text style={[tickerStyles.pillText, { color: seg.color, fontFamily: FONT_MONO }]}>
+            {seg.label}
+          </Text>
+        </View>
+      </Animated.View>
+      <View style={[tickerStyles.separator, { backgroundColor: isDark ? '#2E2E34' : '#E0DCD0' }]} />
+      <Animated.View style={[tickerStyles.scrollWrap, { opacity: contentOpacity }]}>
+        <Animated.Text
+          style={[tickerStyles.scrollText, {
+            color: seg.color,
+            fontFamily: FONT_MONO,
+            transform: [{ translateX: scrollX }],
+          }]}
+          numberOfLines={1}
+        >
+          {tickerText}
+        </Animated.Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
+  lines: TerminalLine[];
+  isLoading: boolean;
+  onResync: () => void;
+  onPersonalStats: () => void;
+}) {
+  const { colors, isDark } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
   const cursorAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -74,208 +145,130 @@ function CmdTerminalFeed({ lines, isLoading }: { lines: TerminalLine[]; isLoadin
   }, [cursorAnim]);
 
   useEffect(() => {
-    lines.forEach((line) => {
-      if (!fadeAnims.current[line.id]) {
-        fadeAnims.current[line.id] = new Animated.Value(0);
-        Animated.timing(fadeAnims.current[line.id], {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }
-    });
-  }, [lines]);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  }, [lines.length]);
 
-  const termAccent = colors.accent;
-  const termDim = colors.terminalDim;
+  const termBg = isDark ? '#0C0C0E' : '#FDFCF8';
+  const termBorder = isDark ? '#1E1E24' : '#E5E1D8';
 
   return (
-    <View style={cmdStyles.feed}>
-      <View style={[cmdStyles.headerBar, { borderBottomColor: termDim + '30' }]}>
-        <View style={cmdStyles.dotRow}>
-          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#F87171' : '#FF5F57' }]} />
-          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#FBBF24' : '#FEBC2E' }]} />
-          <View style={[cmdStyles.dot, { backgroundColor: isDark ? '#34D399' : '#28C840' }]} />
+    <View style={[cmdStyles.window, { backgroundColor: termBg, borderColor: termBorder }]}>
+      <View style={[cmdStyles.titleBar, { borderBottomColor: termBorder }]}>
+        <View style={cmdStyles.dots}>
+          <View style={[cmdStyles.dot, { backgroundColor: '#E87070' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: '#D4A843' }]} />
+          <View style={[cmdStyles.dot, { backgroundColor: '#5EBD8A' }]} />
         </View>
-        <Text style={[cmdStyles.headerTitle, { color: termDim, fontFamily: FONT_MONO }]}>
-          taskflow@system ~ live-feed
+        <Text style={[cmdStyles.titleText, { color: colors.terminalDim, fontFamily: FONT_MONO }]}>
+          Live Collection Tracker | EGO-MX - SF
         </Text>
-        <View style={cmdStyles.headerRight}>
+        <View style={[cmdStyles.sessionBadge, { backgroundColor: colors.terminalGreen + '18' }]}>
           <View style={[cmdStyles.sessionDot, { backgroundColor: colors.terminalGreen }]} />
-          <Text style={[cmdStyles.sessionText, { color: termDim, fontFamily: FONT_MONO }]}>session</Text>
+          <Text style={[cmdStyles.sessionLabel, { color: colors.terminalGreen, fontFamily: FONT_MONO }]}>
+            LIVE
+          </Text>
         </View>
       </View>
 
-      {lines.map((line) => {
-        if (!fadeAnims.current[line.id]) {
-          fadeAnims.current[line.id] = new Animated.Value(1);
-        }
-        const opacity = fadeAnims.current[line.id];
+      <ScrollView
+        ref={scrollRef}
+        style={cmdStyles.scrollArea}
+        contentContainerStyle={cmdStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {lines.map((line) => {
+          const lineColor =
+            line.type === "header" ? colors.accent :
+            line.type === "cmd" ? colors.terminalGreen :
+            line.type === "prompt" ? colors.terminalDim :
+            line.type === "divider" ? colors.terminalDim :
+            line.type === "label" ? colors.mxOrange :
+            line.type === "empty" ? "transparent" :
+            line.color ?? colors.textPrimary;
 
-        const lineColor =
-          line.type === "header" ? termAccent :
-          line.type === "cmd" ? colors.terminalGreen :
-          line.type === "divider" ? termDim :
-          line.type === "label" ? (isDark ? '#FBBF24' : '#9A7B00') :
-          line.type === "empty" ? "transparent" :
-          line.color ?? colors.textPrimary;
-
-        const prefix =
-          line.type === "header" ? "▸ " :
-          line.type === "cmd" ? "$ " :
-          line.type === "label" ? "  → " :
-          line.type === "divider" ? "" :
-          line.type === "empty" ? "" :
-          "  ";
-
-        return (
-          <Animated.View
-            key={line.id}
-            style={[cmdStyles.lineWrap, { opacity }]}
-          >
-            {line.type === "divider" ? (
-              <Text style={[cmdStyles.divider, { color: termDim, fontFamily: FONT_MONO }]}>
+          if (line.type === "empty") return <View key={line.id} style={{ height: 8 }} />;
+          if (line.type === "divider") {
+            return (
+              <Text key={line.id} style={[cmdStyles.line, { color: lineColor, fontFamily: FONT_MONO, opacity: 0.25 }]}>
                 {line.text}
               </Text>
-            ) : (
-              <Text
-                style={[
-                  cmdStyles.line,
-                  {
-                    color: lineColor,
-                    fontFamily: FONT_MONO,
-                    fontWeight: line.type === "header" ? "700" : "400",
-                    fontSize: line.type === "header" ? 12.5 : 11,
-                  },
-                ]}
-              >
-                {prefix}{line.text}
-              </Text>
-            )}
-          </Animated.View>
-        );
-      })}
+            );
+          }
 
-      {isLoading && (
-        <View style={cmdStyles.lineWrap}>
-          <Animated.Text
-            style={[
-              cmdStyles.line,
-              { color: colors.terminalGreen, fontFamily: FONT_MONO, opacity: cursorAnim },
-            ]}
-          >
-            {"  ▌"}
+          const prefix =
+            line.type === "prompt" ? "$ " :
+            line.type === "cmd" ? "> " :
+            line.type === "header" ? "# " :
+            line.type === "label" ? "  ~ " :
+            "  ";
+
+          return (
+            <Text
+              key={line.id}
+              style={[cmdStyles.line, {
+                color: lineColor,
+                fontFamily: FONT_MONO,
+                fontWeight: line.type === "header" ? "700" as const : "400" as const,
+                fontSize: line.type === "header" ? 12 : 11,
+              }]}
+            >
+              {prefix}{line.text}
+            </Text>
+          );
+        })}
+
+        {isLoading && (
+          <Animated.Text style={[cmdStyles.line, {
+            color: colors.terminalGreen,
+            fontFamily: FONT_MONO,
+            opacity: cursorAnim,
+          }]}>
+            {"  \u2588"}
           </Animated.Text>
-        </View>
-      )}
-    </View>
-  );
-}
+        )}
 
-interface TickerSegment {
-  label: string;
-  color: string;
-  bgColor: string;
-  items: string[];
-  speed: number;
-}
-
-function DynamicTicker({ segments }: { segments: TickerSegment[] }) {
-  const { colors } = useTheme();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (segments.length <= 1) return;
-    const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % segments.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [segments.length]);
-
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 0.4, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [pulseAnim]);
-
-  const seg = segments[activeIndex] ?? segments[0];
-  if (!seg) return null;
-
-  const tickerText = seg.items.join("     ·     ");
-
-  useEffect(() => {
-    const totalWidth = tickerText.length * 7 + 400;
-    scrollX.setValue(SCREEN_WIDTH);
-
-    const duration = Math.max(totalWidth * (seg.speed || 28), 6000);
-    const anim = Animated.loop(
-      Animated.timing(scrollX, {
-        toValue: -totalWidth,
-        duration,
-        useNativeDriver: true,
-      })
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [tickerText, scrollX, seg.speed]);
-
-  return (
-    <View style={[tickerStyles.container, {
-      backgroundColor: seg.bgColor,
-      borderTopColor: seg.color + '30',
-      borderBottomColor: seg.color + '30',
-    }]}>
-      <View style={tickerStyles.pillSection}>
-        <Animated.View style={[tickerStyles.alertDot, { backgroundColor: seg.color, opacity: pulseAnim }]} />
-        <Text style={[tickerStyles.pillText, { color: seg.color, fontFamily: FONT_MONO }]}>
-          {seg.label}
-        </Text>
-      </View>
-      <View style={[tickerStyles.dividerLine, { backgroundColor: seg.color + '30' }]} />
-      <View style={tickerStyles.scrollArea}>
-        <Animated.Text
-          style={[
-            tickerStyles.text,
-            {
-              color: seg.color,
-              fontFamily: FONT_MONO,
-              transform: [{ translateX: scrollX }],
-            },
-          ]}
-          numberOfLines={1}
-        >
-          {tickerText}
-        </Animated.Text>
-      </View>
+        {!isLoading && lines.length > 3 && (
+          <View style={cmdStyles.actionRow}>
+            <TouchableOpacity
+              style={[cmdStyles.actionBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}
+              onPress={onResync}
+              activeOpacity={0.7}
+            >
+              <RefreshCw size={11} color={colors.accent} />
+              <Text style={[cmdStyles.actionText, { color: colors.accent, fontFamily: FONT_MONO }]}>
+                RESYNC
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[cmdStyles.actionBtn, { backgroundColor: colors.completeBg, borderColor: colors.complete + '30' }]}
+              onPress={onPersonalStats}
+              activeOpacity={0.7}
+            >
+              <User size={11} color={colors.complete} />
+              <Text style={[cmdStyles.actionText, { color: colors.complete, fontFamily: FONT_MONO }]}>
+                MY STATS
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { colors, isDark } = useTheme();
-
+  const { colors } = useTheme();
   const steps = [
-    { num: "01", title: "Select Your Profile", desc: "Go to Tools → My Profile and pick your name & rig." },
+    { num: "01", title: "Select Your Profile", desc: "Go to Tools and pick your name & rig." },
     { num: "02", title: "Assign a Task", desc: "Head to Collect, choose a task, and hit Assign." },
-    { num: "03", title: "Complete or Log Hours", desc: "Track your progress and mark tasks Done when finished." },
-    { num: "04", title: "Check Your Stats", desc: "Visit Stats to see your performance and leaderboard rank." },
+    { num: "03", title: "Complete or Log Hours", desc: "Track your progress and mark tasks Done." },
+    { num: "04", title: "Check Your Stats", desc: "Visit Stats for performance and leaderboard." },
   ];
 
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={guideStyles.overlay}>
-        <View style={[guideStyles.card, {
-          backgroundColor: colors.bgCard,
-          borderColor: colors.border,
-          shadowColor: colors.shadow,
-        }]}>
+        <View style={[guideStyles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={guideStyles.cardHeader}>
             <Text style={[guideStyles.cardTitle, { color: colors.accent, fontFamily: FONT_MONO }]}>
               QUICK START
@@ -295,7 +288,7 @@ function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => voi
                 <Text style={[guideStyles.stepTitle, { color: colors.textPrimary, fontWeight: "600" as const }]}>
                   {step.title}
                 </Text>
-                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary, fontWeight: "400" as const }]}>
+                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary }]}>
                   {step.desc}
                 </Text>
               </View>
@@ -307,61 +300,6 @@ function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => voi
   );
 }
 
-function TaskFlowTitle({ colors, isDark }: { colors: any; isDark: boolean }) {
-  const glowAnim = useRef(new Animated.Value(0.5)).current;
-
-  useEffect(() => {
-    const glow = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(glowAnim, { toValue: 0.5, duration: 2000, useNativeDriver: true }),
-      ])
-    );
-    glow.start();
-    return () => glow.stop();
-  }, [glowAnim]);
-
-  const letters = "TASKFLOW".split("");
-
-  return (
-    <View style={titleStyles.wrap}>
-      <View style={titleStyles.letterRow}>
-        {letters.map((letter, idx) => (
-          <Animated.Text
-            key={`letter_${idx}`}
-            style={[
-              titleStyles.letter,
-              {
-                color: colors.accent,
-                fontFamily: FONT_MONO,
-                opacity: idx === 4 ? glowAnim : 1,
-              },
-            ]}
-          >
-            {letter}
-          </Animated.Text>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const titleStyles = StyleSheet.create({
-  wrap: {
-    alignItems: "center",
-    paddingVertical: 6,
-  },
-  letterRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  letter: {
-    fontSize: 22,
-    fontWeight: "900" as const,
-    letterSpacing: 2,
-  },
-});
-
 export default function LiveScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -371,8 +309,21 @@ export default function LiveScreen() {
   const [isOnline, setIsOnline] = useState(false);
   const [isFeeding, setIsFeeding] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
+  const [showPersonalStats, setShowPersonalStats] = useState(false);
   const lineIndexRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const glowAnim = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    const glow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.4, duration: 2500, useNativeDriver: true }),
+      ])
+    );
+    glow.start();
+    return () => glow.stop();
+  }, [glowAnim]);
 
   const statsQuery = useQuery({
     queryKey: ["liveStats", selectedCollectorName],
@@ -393,9 +344,9 @@ export default function LiveScreen() {
   const recollectionsQuery = useQuery({
     queryKey: ["recollections"],
     queryFn: async () => {
-      console.log("[LIVE] Fetching recollections from ADMIN_DASHBOARD C28+");
+      console.log("[LIVE] Fetching recollections");
       const data = await fetchRecollections();
-      console.log("[LIVE] Recollections received:", data?.length ?? 0, "items");
+      console.log("[LIVE] Recollections:", data?.length ?? 0);
       return data;
     },
     enabled: configured,
@@ -406,15 +357,12 @@ export default function LiveScreen() {
 
   const recollectItems = useMemo(() => {
     const sheetItems = recollectionsQuery.data;
-    if (sheetItems && sheetItems.length > 0) {
-      return sheetItems;
-    }
+    if (sheetItems && sheetItems.length > 0) return sheetItems;
     const log = todayLogQuery.data ?? todayLog;
     const fallback = log
       .filter((e) => e.status === "Partial" || e.remainingHours > 0)
-      .map((e) => `${normalizeCollectorName(e.taskName)}  (${e.remainingHours}h left)`);
-    if (fallback.length > 0) return fallback;
-    return [];
+      .map((e) => `${normalizeCollectorName(e.taskName)} (${e.remainingHours}h left)`);
+    return fallback.length > 0 ? fallback : [];
   }, [recollectionsQuery.data, todayLogQuery.data, todayLog]);
 
   const { mxCollectors, sfCollectors } = useMemo(() => {
@@ -423,161 +371,148 @@ export default function LiveScreen() {
     for (const c of collectors) {
       const hasSFRig = c.rigs.some((r) => r.toUpperCase().includes("SF"));
       const isSFByName = SF_KNOWN_NAMES.has(normForMatch(c.name));
-      if (hasSFRig || isSFByName) {
-        sf.push(c);
-      } else {
-        mx.push(c);
-      }
+      if (hasSFRig || isSFByName) sf.push(c);
+      else mx.push(c);
     }
     return { mxCollectors: mx, sfCollectors: sf };
   }, [collectors]);
 
   const totalRigCount = useMemo(() => {
     const mxRigs = mxCollectors.reduce((s, c) => s + c.rigs.length, 0);
-    const sfRigs = sfCollectors.reduce((s, c) => s + c.rigs.length, 0);
-    const sfFallback = sfCollectors.length > 0 ? sfRigs : 3;
-    return mxRigs + sfFallback;
+    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
+    return mxRigs + sfRigs;
   }, [mxCollectors, sfCollectors]);
-
-  const lastRefresh = useMemo(() => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} today`;
-  }, []);
 
   const stats = statsQuery.data;
 
   const tickerSegments = useMemo((): TickerSegment[] => {
     const segs: TickerSegment[] = [];
-
     segs.push({
       label: "ALERT",
       color: isDark ? colors.alertYellow : colors.alertYellow,
       bgColor: isDark ? colors.alertYellowBg : colors.alertYellowBg,
       items: ["Welcome to TaskFlow", "Check your daily assignments", "Stay on target"],
-      speed: 30,
+      speed: 32,
     });
-
-    const hasRecollects = recollectItems.length > 0;
     segs.push({
       label: "RECOLLECT",
       color: isDark ? colors.recollectRed : colors.recollectRed,
       bgColor: isDark ? colors.recollectRedBg : colors.recollectRedBg,
-      items: hasRecollects ? recollectItems : ["No pending recollections"],
-      speed: hasRecollects ? 20 : 30,
+      items: recollectItems.length > 0 ? recollectItems : ["No pending recollections"],
+      speed: recollectItems.length > 0 ? 22 : 32,
     });
-
     const statsItems: string[] = [];
     if (stats) {
       statsItems.push(`Completion: ${stats.completionRate.toFixed(0)}%`);
-      statsItems.push(`Hours logged: ${stats.totalLoggedHours.toFixed(1)}h`);
-      statsItems.push(`Tasks done: ${stats.totalCompleted}`);
+      statsItems.push(`Hours: ${stats.totalLoggedHours.toFixed(1)}h`);
+      statsItems.push(`Done: ${stats.totalCompleted}`);
       if (stats.topTasks && stats.topTasks.length > 0) {
-        const top5 = stats.topTasks.slice(0, 5);
-        top5.forEach((t, i) => {
+        stats.topTasks.slice(0, 5).forEach((t, i) => {
           statsItems.push(`#${i + 1} ${t.name} (${t.hours}h)`);
         });
       }
     } else {
       statsItems.push("Loading stats...");
     }
-
     segs.push({
       label: "STATS",
       color: isDark ? colors.statsGreen : colors.statsGreen,
       bgColor: isDark ? colors.statsGreenBg : colors.statsGreenBg,
       items: statsItems,
-      speed: 35,
+      speed: 36,
     });
-
     return segs;
   }, [isDark, colors, recollectItems, stats]);
 
-  const allLines = useMemo((): TerminalLine[] => {
+  const buildTerminalLines = useCallback((): TerminalLine[] => {
     const lines: TerminalLine[] = [];
     const ts = Date.now();
-
-    const loadingLine = FUNNY_LOADING_LINES[Math.floor(Math.random() * FUNNY_LOADING_LINES.length)];
-    lines.push({ id: `boot_${ts}`, text: loadingLine, type: "cmd" });
-    lines.push({ id: `sys_${ts}_0`, text: "EGO COLLECTION INTELLIGENCE SYSTEM", type: "header" });
-    lines.push({ id: `sys_${ts}_1`, text: "─".repeat(42), type: "divider" });
-    lines.push({ id: `sys_${ts}_2`, text: "", type: "empty" });
-
-    lines.push({ id: `mx_${ts}_h`, text: "EGO-MX  /  LOS CABOS", type: "header" });
+    const mxRigs = mxCollectors.length > 0 ? mxCollectors.reduce((s, c) => s + c.rigs.length, 0) : Math.max(Math.floor(collectors.length * 0.55), 1);
+    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
     const mxCount = mxCollectors.length > 0 ? mxCollectors.length : Math.max(Math.floor(collectors.length * 0.55), 1);
-    const mxRigs = mxCollectors.length > 0 ? mxCollectors.reduce((s, c) => s + c.rigs.length, 0) : mxCount;
-    lines.push({ id: `mx_${ts}_c`, text: `Collectors:   ${mxCount}`, type: "data", color: colors.textPrimary });
-    lines.push({ id: `mx_${ts}_r`, text: `Active Rigs:  ${mxRigs}`, type: "data", color: colors.textPrimary });
+    const sfCount = sfCollectors.length > 0 ? sfCollectors.length : 3;
 
+    lines.push({ id: `p1_${ts}`, text: "taskflow --connect --live", type: "prompt" });
+    lines.push({ id: `c1_${ts}`, text: "Establishing connection to EGO data pipeline...", type: "cmd" });
+    lines.push({ id: `c2_${ts}`, text: "Authenticated. Pulling latest collection intel.", type: "cmd" });
+    lines.push({ id: `d1_${ts}`, text: "", type: "empty" });
+    lines.push({ id: `d2_${ts}`, text: "\u2500".repeat(44), type: "divider" });
+
+    lines.push({ id: `p2_${ts}`, text: "fetch --region mx --status live", type: "prompt" });
+    lines.push({ id: `mx_h_${ts}`, text: "EGO-MX  |  LOS CABOS", type: "header" });
+    lines.push({ id: `mx_c_${ts}`, text: `Collectors Online:  ${mxCount}`, type: "data", color: colors.textPrimary });
+    lines.push({ id: `mx_r_${ts}`, text: `Active Rigs:        ${mxRigs}`, type: "data", color: colors.textPrimary });
     if (stats) {
-      lines.push({ id: `mx_${ts}_t`, text: `Tasks Logged: ${stats.totalAssigned}`, type: "data", color: colors.accentLight });
-      lines.push({ id: `mx_${ts}_h2`, text: `Hours:        ${stats.totalLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
-      lines.push({ id: `mx_${ts}_r2`, text: `Rate:         ${stats.completionRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
+      lines.push({ id: `mx_t_${ts}`, text: `Tasks Logged:       ${stats.totalAssigned}`, type: "data", color: colors.mxOrange });
+      lines.push({ id: `mx_h2_${ts}`, text: `Hours Captured:     ${stats.totalLoggedHours.toFixed(1)}h`, type: "data", color: colors.mxOrange });
+      lines.push({ id: `mx_r2_${ts}`, text: `Completion Rate:    ${stats.completionRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
     } else {
-      lines.push({ id: `mx_${ts}_t`, text: "Awaiting data feed...", type: "label" });
+      lines.push({ id: `mx_w_${ts}`, text: "Awaiting data feed...", type: "label" });
     }
 
-    lines.push({ id: `div2_${ts}`, text: "", type: "empty" });
-    lines.push({ id: `sf_${ts}_h`, text: "EGO-SF  /  SAN FRANCISCO", type: "header" });
-    const sfCount = sfCollectors.length > 0 ? sfCollectors.length : 3;
-    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
-    lines.push({ id: `sf_${ts}_c`, text: `Collectors:   ${sfCount}`, type: "data", color: colors.textPrimary });
-    lines.push({ id: `sf_${ts}_r`, text: `Active Rigs:  ${sfRigs}`, type: "data", color: colors.textPrimary });
-
+    lines.push({ id: `d3_${ts}`, text: "", type: "empty" });
+    lines.push({ id: `p3_${ts}`, text: "fetch --region sf --status live", type: "prompt" });
+    lines.push({ id: `sf_h_${ts}`, text: "EGO-SF  |  SAN FRANCISCO", type: "header" });
+    lines.push({ id: `sf_c_${ts}`, text: `Collectors Online:  ${sfCount}`, type: "data", color: colors.textPrimary });
+    lines.push({ id: `sf_r_${ts}`, text: `Active Rigs:        ${sfRigs}`, type: "data", color: colors.textPrimary });
     if (stats) {
-      const sfTaskEstimate = Math.max(Math.round(stats.totalAssigned * 0.4), 1);
-      const sfHrsEstimate = Number((stats.totalLoggedHours * 0.35).toFixed(1));
+      const sfTasks = Math.max(Math.round(stats.totalAssigned * 0.4), 1);
+      const sfHrs = Number((stats.totalLoggedHours * 0.35).toFixed(1));
       const sfRate = Math.min(stats.completionRate + 5, 100);
-      lines.push({ id: `sf_${ts}_t`, text: `Tasks Logged: ${sfTaskEstimate}`, type: "data", color: colors.accentLight });
-      lines.push({ id: `sf_${ts}_h2`, text: `Hours:        ${sfHrsEstimate}h`, type: "data", color: colors.accentLight });
-      lines.push({ id: `sf_${ts}_r2`, text: `Rate:         ${sfRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
+      lines.push({ id: `sf_t_${ts}`, text: `Tasks Logged:       ${sfTasks}`, type: "data", color: colors.sfBlue });
+      lines.push({ id: `sf_h2_${ts}`, text: `Hours Captured:     ${sfHrs}h`, type: "data", color: colors.sfBlue });
+      lines.push({ id: `sf_r2_${ts}`, text: `Completion Rate:    ${sfRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
     } else {
-      lines.push({ id: `sf_${ts}_t`, text: "Awaiting data feed...", type: "label" });
+      lines.push({ id: `sf_w_${ts}`, text: "Awaiting data feed...", type: "label" });
     }
 
     if (sfCollectors.length > 0) {
-      const sfNames = sfCollectors.map((c) => c.name).join(", ");
-      lines.push({ id: `sf_${ts}_n`, text: `Team: ${sfNames}`, type: "label" });
-    } else {
-      lines.push({ id: `sf_${ts}_n`, text: "Team: Tony A., Veronika T., Travis B.", type: "label" });
+      lines.push({ id: `sf_n_${ts}`, text: `Team: ${sfCollectors.map((c) => c.name).join(", ")}`, type: "label" });
     }
 
-    lines.push({ id: `div3_${ts}`, text: "", type: "empty" });
-    lines.push({ id: `avg_${ts}_h`, text: "COMBINED TEAM STATS", type: "header" });
+    lines.push({ id: `d4_${ts}`, text: "", type: "empty" });
+    lines.push({ id: `d5_${ts}`, text: "\u2500".repeat(44), type: "divider" });
+    lines.push({ id: `p4_${ts}`, text: "aggregate --combined --weekly", type: "prompt" });
+    lines.push({ id: `cb_h_${ts}`, text: "COMBINED TEAM OVERVIEW", type: "header" });
     if (stats) {
-      lines.push({ id: `avg_${ts}_1`, text: `Completion:   ${stats.completionRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
-      lines.push({ id: `avg_${ts}_2`, text: `Avg Hrs/Task: ${stats.avgHoursPerTask.toFixed(2)}h`, type: "data", color: colors.textPrimary });
-      lines.push({ id: `avg_${ts}_3`, text: `Weekly Hrs:   ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
-      lines.push({ id: `avg_${ts}_4`, text: `Weekly Done:  ${stats.weeklyCompleted}`, type: "data", color: colors.terminalGreen });
-      lines.push({ id: `avg_${ts}_5`, text: `Total Rigs:   ${totalRigCount} (MX: ${mxRigs} + SF: ${sfRigs})`, type: "data", color: colors.textPrimary });
+      lines.push({ id: `cb_1_${ts}`, text: `Overall Rate:       ${stats.completionRate.toFixed(1)}%`, type: "data", color: colors.terminalGreen });
+      lines.push({ id: `cb_2_${ts}`, text: `Avg Hours/Task:     ${stats.avgHoursPerTask.toFixed(2)}h`, type: "data", color: colors.textPrimary });
+      lines.push({ id: `cb_3_${ts}`, text: `Weekly Hours:       ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
+      lines.push({ id: `cb_4_${ts}`, text: `Weekly Completed:   ${stats.weeklyCompleted}`, type: "data", color: colors.terminalGreen });
+      lines.push({ id: `cb_5_${ts}`, text: `Total Rigs:         ${totalRigCount} (MX: ${mxRigs} + SF: ${sfRigs})`, type: "data", color: colors.textPrimary });
     } else {
-      lines.push({ id: `avg_${ts}_1`, text: "Syncing with server...", type: "label" });
+      lines.push({ id: `cb_w_${ts}`, text: "Syncing with server...", type: "label" });
     }
-
-    lines.push({ id: `div4_${ts}`, text: "", type: "empty" });
 
     if (recollectItems.length > 0) {
-      lines.push({ id: `rec_${ts}_h`, text: "PENDING RECOLLECTIONS", type: "header" });
+      lines.push({ id: `d6_${ts}`, text: "", type: "empty" });
+      lines.push({ id: `p5_${ts}`, text: "query --recollections --pending", type: "prompt" });
+      lines.push({ id: `rc_h_${ts}`, text: "PENDING RECOLLECTIONS", type: "header" });
       recollectItems.slice(0, 5).forEach((item, i) => {
-        lines.push({ id: `rec_${ts}_${i}`, text: item, type: "data", color: colors.cancel });
+        lines.push({ id: `rc_${ts}_${i}`, text: item, type: "data", color: colors.cancel });
       });
       if (recollectItems.length > 5) {
-        lines.push({ id: `rec_${ts}_more`, text: `+ ${recollectItems.length - 5} more...`, type: "label" });
+        lines.push({ id: `rc_more_${ts}`, text: `+ ${recollectItems.length - 5} more pending...`, type: "label" });
       }
-      lines.push({ id: `rec_${ts}_d`, text: "", type: "empty" });
     }
 
-    lines.push({ id: `sys2_${ts}`, text: "─".repeat(42), type: "divider" });
-    lines.push({ id: `rd_${ts}`, text: `LAST REDASH PULL: ${lastRefresh}`, type: "label" });
+    lines.push({ id: `d7_${ts}`, text: "", type: "empty" });
+    lines.push({ id: `d8_${ts}`, text: "\u2500".repeat(44), type: "divider" });
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    lines.push({ id: `ts_${ts}`, text: `Last sync: ${timeStr} PST`, type: "cmd" });
+    lines.push({ id: `rdy_${ts}`, text: "Ready for commands.", type: "cmd" });
 
     return lines;
-  }, [stats, collectors, mxCollectors, sfCollectors, colors, lastRefresh, recollectItems, totalRigCount]);
+  }, [stats, collectors, mxCollectors, sfCollectors, colors, recollectItems, totalRigCount]);
+
+  const allLines = useMemo(() => buildTerminalLines(), [buildTerminalLines]);
 
   useEffect(() => {
     setIsOnline(configured);
     setLiveLines([]);
     setIsFeeding(true);
     lineIndexRef.current = 0;
-
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     const feed = () => {
@@ -588,124 +523,111 @@ export default function LiveScreen() {
       }
       const next = allLines[lineIndexRef.current];
       lineIndexRef.current += 1;
-      setLiveLines((prev) => {
-        const updated = [...prev, next];
-        return updated.slice(-40);
-      });
+      setLiveLines((prev) => [...prev, next].slice(-50));
     };
 
     feed();
-    intervalRef.current = setInterval(feed, 120);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    intervalRef.current = setInterval(feed, 90);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [allLines, configured]);
 
-  const handleRefresh = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const handleResync = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     statsQuery.refetch();
     todayLogQuery.refetch();
     recollectionsQuery.refetch();
+    setLiveLines([]);
+    setIsFeeding(true);
+    lineIndexRef.current = 0;
   }, [statsQuery, todayLogQuery, recollectionsQuery]);
+
+  const handlePersonalStats = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!stats || !selectedCollectorName) return;
+    const personalLines: TerminalLine[] = [];
+    const ts = Date.now();
+    personalLines.push({ id: `ps_p_${ts}`, text: `stats --collector "${selectedCollectorName}"`, type: "prompt" });
+    personalLines.push({ id: `ps_h_${ts}`, text: `PERSONAL STATS: ${normalizeCollectorName(selectedCollectorName)}`, type: "header" });
+    personalLines.push({ id: `ps_1_${ts}`, text: `Total Assigned:     ${stats.totalAssigned}`, type: "data", color: colors.textPrimary });
+    personalLines.push({ id: `ps_2_${ts}`, text: `Total Completed:    ${stats.totalCompleted}`, type: "data", color: colors.terminalGreen });
+    personalLines.push({ id: `ps_3_${ts}`, text: `Hours Logged:       ${stats.totalLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
+    personalLines.push({ id: `ps_4_${ts}`, text: `Completion Rate:    ${stats.completionRate.toFixed(0)}%`, type: "data", color: colors.terminalGreen });
+    personalLines.push({ id: `ps_5_${ts}`, text: `Weekly Hours:       ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accent });
+    personalLines.push({ id: `ps_d_${ts}`, text: "\u2500".repeat(44), type: "divider" });
+
+    setLiveLines((prev) => [...prev, ...personalLines].slice(-50));
+  }, [stats, selectedCollectorName, colors]);
 
   const handleToggleTheme = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleTheme();
   }, [toggleTheme]);
 
-  const handleShowGuide = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowGuide(true);
-  }, []);
-
-  const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
-  const bgMain = colors.bg;
+  const livePillColor = isDark ? colors.terminalGreen : '#2D8A56';
 
   return (
-    <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <TaskFlowTitle colors={colors} isDark={isDark} />
-        <View style={styles.topBarActions}>
+        <View style={styles.topBarLeft}>
+          <View style={styles.brandRow}>
+            <Animated.Text style={[styles.brandText, {
+              color: colors.accent,
+              fontFamily: FONT_MONO,
+              opacity: glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0.7, 1] }),
+            }]}>
+              TASKFLOW
+            </Animated.Text>
+            <View style={[styles.liveBadge, {
+              backgroundColor: isOnline ? livePillColor + '14' : colors.cancel + '14',
+              borderColor: isOnline ? livePillColor + '40' : colors.cancel + '40',
+            }]}>
+              <View style={[styles.liveDot, { backgroundColor: isOnline ? livePillColor : colors.cancel }]} />
+              <Text style={[styles.liveLabel, { color: isOnline ? livePillColor : colors.cancel, fontFamily: FONT_MONO }]}>
+                {isOnline ? "LIVE" : "OFF"}
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.rigCountText, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
+            {totalRigCount} rigs active
+          </Text>
+        </View>
+        <View style={styles.topBarRight}>
           <TouchableOpacity
-            style={[styles.topBarBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            style={[styles.iconBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             onPress={handleToggleTheme}
             activeOpacity={0.7}
             testID="theme-toggle-live"
           >
-            {isDark ? <Sun size={16} color="#FBBF24" /> : <Moon size={16} color={colors.textSecondary} />}
+            {isDark ? <Sun size={15} color={colors.alertYellow} /> : <Moon size={15} color={colors.textSecondary} />}
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.topBarBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-            onPress={handleShowGuide}
+            style={[styles.iconBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowGuide(true); }}
             activeOpacity={0.7}
             testID="guide-btn"
           >
-            <BookOpen size={16} color={colors.accent} />
+            <BookOpen size={15} color={colors.accent} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.topBarBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
+            style={[styles.iconBtn, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}
+            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
             activeOpacity={0.7}
             testID="ranks-btn"
           >
-            <Trophy size={16} color={colors.accent} />
+            <Trophy size={15} color={colors.accent} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.statusRow}>
-        <View style={[
-          styles.livePill,
-          {
-            backgroundColor: isOnline ? livePillColor + '1A' : colors.cancel + '1A',
-            borderColor: isOnline ? livePillColor + '44' : colors.cancel + '44',
-          }
-        ]}>
-          <View style={[styles.statusDot, {
-            backgroundColor: isOnline ? livePillColor : colors.cancel,
-          }]} />
-          <Text style={[styles.liveText, {
-            color: isOnline ? livePillColor : colors.cancel,
-            fontFamily: FONT_MONO,
-          }]}>
-            {isOnline ? "LIVE" : "OFFLINE"}
-          </Text>
-        </View>
-        <Text style={[styles.rigCount, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
-          {totalRigCount} RIGS
-        </Text>
-      </View>
+      <NewsTicker segments={tickerSegments} />
 
-      <DynamicTicker segments={tickerSegments} />
-
-      <ScrollView
-        style={styles.terminalScroll}
-        contentContainerStyle={styles.terminalContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.terminalWindow, {
-          backgroundColor: isDark ? '#0A0A0C' : '#FFFEF8',
-          borderColor: isDark ? '#1E1E24' : '#E0DCD0',
-        }]}>
-          <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.refreshBtn, {
-            backgroundColor: colors.bgCard,
-            borderColor: colors.border,
-          }]}
-          onPress={handleRefresh}
-          activeOpacity={0.7}
-        >
-          <RefreshCw size={12} color={colors.textMuted} />
-          <Text style={[styles.refreshText, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
-            REFRESH FEED
-          </Text>
-        </TouchableOpacity>
+      <ScrollView style={styles.terminalScroll} contentContainerStyle={styles.terminalContent} showsVerticalScrollIndicator={false}>
+        <CmdTerminal
+          lines={liveLines}
+          isLoading={isFeeding}
+          onResync={handleResync}
+          onPersonalStats={handlePersonalStats}
+        />
       </ScrollView>
 
       <GuideModal visible={showGuide} onClose={() => setShowGuide(false)} />
@@ -713,249 +635,123 @@ export default function LiveScreen() {
   );
 }
 
-const guideStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 380,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 30,
-    elevation: 20,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "800" as const,
-    letterSpacing: 3,
-  },
-  step: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    paddingVertical: 14,
-  },
-  stepNum: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepNumText: {
-    fontSize: 11,
-    fontWeight: "800" as const,
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 14,
-    marginBottom: 3,
-  },
-  stepDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-});
-
-const cmdStyles = StyleSheet.create({
-  feed: {
-    gap: 0,
-  },
-  headerBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    marginBottom: 8,
-  },
-  dotRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  dot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-  },
-  headerTitle: {
-    fontSize: 10,
-    letterSpacing: 0.5,
-    marginLeft: 10,
-    flex: 1,
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  sessionDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  sessionText: {
-    fontSize: 8,
-    letterSpacing: 0.5,
-  },
-  lineWrap: {
-    paddingVertical: 1,
-    paddingHorizontal: 14,
-  },
-  line: {
-    lineHeight: 20,
-    letterSpacing: 0.2,
-  },
-  divider: {
-    fontSize: 11,
-    letterSpacing: 0.5,
-    opacity: 0.3,
-    paddingVertical: 2,
-    paddingHorizontal: 14,
-  },
-});
-
 const tickerStyles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    height: 38,
+    height: 34,
     overflow: "hidden",
-    borderTopWidth: 1,
     borderBottomWidth: 1,
   },
-  pillSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-  },
-  alertDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  pillText: {
-    fontSize: 8,
-    fontWeight: "800" as const,
-    letterSpacing: 1.6,
-  },
-  dividerLine: {
-    width: 1,
-    height: 20,
-  },
-  scrollArea: {
-    flex: 1,
-    overflow: "hidden",
-    height: 38,
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-  text: {
-    fontSize: 10.5,
-    letterSpacing: 0.3,
-    width: 4000,
-  },
-});
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  topBar: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 4,
-  },
-  topBarActions: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-    marginTop: 4,
-  },
-  topBarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-  },
-  livePill: {
+  pillWrap: { paddingHorizontal: 10 },
+  pill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveText: {
-    fontSize: 10,
-    fontWeight: "800" as const,
-    letterSpacing: 1.5,
-  },
-  rigCount: {
-    fontSize: 9,
-    letterSpacing: 1,
-    fontWeight: "600" as const,
-  },
-  terminalScroll: {
-    flex: 1,
-  },
-  terminalContent: {
+  pillDot: { width: 5, height: 5, borderRadius: 3 },
+  pillText: { fontSize: 8, fontWeight: "800" as const, letterSpacing: 1.2 },
+  separator: { width: 1, height: 16 },
+  scrollWrap: { flex: 1, overflow: "hidden", height: 34, justifyContent: "center", marginLeft: 8 },
+  scrollText: { fontSize: 10, letterSpacing: 0.3, width: 5000 },
+});
+
+const cmdStyles = StyleSheet.create({
+  window: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  titleBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
     paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  dots: { flexDirection: "row", gap: 5 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  titleText: { fontSize: 9, letterSpacing: 0.3, marginLeft: 10, flex: 1 },
+  sessionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  sessionDot: { width: 4, height: 4, borderRadius: 2 },
+  sessionLabel: { fontSize: 7, fontWeight: "800" as const, letterSpacing: 1 },
+  scrollArea: { maxHeight: 420 },
+  scrollContent: { padding: 12, paddingBottom: 8 },
+  line: { lineHeight: 19, letterSpacing: 0.2, fontSize: 11 },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
     paddingTop: 10,
-    paddingBottom: 120,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(128,128,128,0.1)",
   },
-  terminalWindow: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingVertical: 4,
-    overflow: "hidden",
-  },
-  refreshBtn: {
+  actionBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
   },
-  refreshText: {
-    fontSize: 9,
-    letterSpacing: 1.5,
-    fontWeight: "700" as const,
+  actionText: { fontSize: 9, fontWeight: "700" as const, letterSpacing: 1 },
+});
+
+const guideStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center", padding: 24 },
+  card: { width: "100%", maxWidth: 380, borderRadius: 20, borderWidth: 1, padding: 20 },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  cardTitle: { fontSize: 14, fontWeight: "800" as const, letterSpacing: 3 },
+  step: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 14 },
+  stepNum: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  stepNumText: { fontSize: 11, fontWeight: "800" as const },
+  stepContent: { flex: 1 },
+  stepTitle: { fontSize: 14, marginBottom: 3 },
+  stepDesc: { fontSize: 12, lineHeight: 17 },
+});
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 8,
   },
+  topBarLeft: { flex: 1 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  brandText: { fontSize: 20, fontWeight: "900" as const, letterSpacing: 4 },
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  liveDot: { width: 5, height: 5, borderRadius: 3 },
+  liveLabel: { fontSize: 8, fontWeight: "800" as const, letterSpacing: 1 },
+  rigCountText: { fontSize: 9, marginTop: 2, letterSpacing: 0.5 },
+  topBarRight: { flexDirection: "row", gap: 8 },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  terminalScroll: { flex: 1 },
+  terminalContent: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 120 },
 });

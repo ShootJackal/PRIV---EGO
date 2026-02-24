@@ -1,4 +1,4 @@
-import { Collector, Task, LogEntry, TaskMeta, SubmitPayload, SubmitResponse, CollectorStats, TaskActualRow, FullLogEntry, AdminDashboardData } from "../types";
+import { Collector, Task, LogEntry, TaskMeta, SubmitPayload, SubmitResponse, CollectorStats, TaskActualRow, FullLogEntry, AdminDashboardData, LeaderboardEntry } from "../types";
 
 function getScriptUrl(): string {
   return process.env.EXPO_PUBLIC_GOOGLE_SCRIPT_URL ?? "";
@@ -136,6 +136,16 @@ export async function fetchTaskActualsData(): Promise<TaskActualRow[]> {
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
   console.log("[API] fetchAdminDashboardData");
   return apiGet<AdminDashboardData>("getAdminDashboardData");
+}
+
+export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
+  console.log("[API] fetchLeaderboard");
+  try {
+    return await apiGet<LeaderboardEntry[]>("getLeaderboard");
+  } catch {
+    console.log("[API] Leaderboard endpoint not available, returning empty");
+    return [];
+  }
 }
 
 export function isApiConfigured(): boolean {
