@@ -33,6 +33,7 @@ function AnimatedBar({
   color: string;
   delay: number;
 }) {
+  const { colors } = useTheme();
   const widthAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -46,7 +47,7 @@ function AnimatedBar({
   }, [value, maxValue, delay, widthAnim]);
 
   return (
-    <View style={barStyles.track}>
+    <View style={[barStyles.track, { backgroundColor: colors.bgInput }]}>
       <Animated.View
         style={[
           barStyles.fill,
@@ -67,7 +68,6 @@ const barStyles = StyleSheet.create({
   track: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(128,128,128,0.1)",
     overflow: "hidden" as const,
   },
   fill: {
@@ -91,7 +91,7 @@ function HeroStat({
   color: string;
   index: number;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -113,20 +113,23 @@ function HeroStat({
     ]).start();
   }, [fadeAnim, slideAnim, index]);
 
+  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
+  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
+
   return (
     <Animated.View
       style={[
         styles.heroCard,
         {
-          backgroundColor: colors.bgCard,
-          borderColor: colors.border,
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
           shadowColor: colors.shadow,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         },
       ]}
     >
-      <View style={[styles.heroIconWrap, { backgroundColor: color + "16" }]}>
+      <View style={[styles.heroIconWrap, { backgroundColor: color + "14" }]}>
         {icon}
       </View>
       <Text style={[styles.heroValue, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
@@ -194,13 +197,8 @@ export default function StatsScreen() {
 
   const stats = statsQuery.data;
 
-  const cardShadow = {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 14,
-    elevation: 4,
-  };
+  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
+  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   if (!selectedCollector) {
     return (
@@ -234,8 +232,8 @@ export default function StatsScreen() {
         style={[
           styles.leaderboardCard,
           {
-            backgroundColor: isDark ? colors.gold + '12' : colors.gold + '0C',
-            borderColor: colors.gold + '35',
+            backgroundColor: isDark ? colors.gold + '10' : colors.gold + '0A',
+            borderColor: colors.gold + '30',
             shadowColor: colors.shadow,
           },
         ]}
@@ -246,7 +244,7 @@ export default function StatsScreen() {
         activeOpacity={0.75}
         testID="leaderboard-btn"
       >
-        <View style={[styles.leaderboardIcon, { backgroundColor: colors.gold + '20' }]}>
+        <View style={[styles.leaderboardIcon, { backgroundColor: colors.gold + '18' }]}>
           <Trophy size={20} color={colors.gold} />
         </View>
         <View style={styles.leaderboardInfo}>
@@ -279,7 +277,7 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      <View style={[styles.sectionHeader]}>
+      <View style={styles.sectionHeader}>
         <Calendar size={13} color={colors.accent} />
         <Text style={[styles.sectionLabel, { color: colors.accent, fontFamily: "Lexend_700Bold" }]}>
           TODAY
@@ -321,7 +319,7 @@ export default function StatsScreen() {
         <View
           style={[
             styles.progressCard,
-            { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
+            { backgroundColor: cardBg, borderColor: cardBorder },
           ]}
         >
           <View style={styles.progressHeader}>
@@ -355,7 +353,7 @@ export default function StatsScreen() {
             </Text>
           </View>
 
-          <View style={[styles.weekCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+          <View style={[styles.weekCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <View style={styles.weekRow}>
               <SmallStat
                 label="Hours"
@@ -405,7 +403,7 @@ export default function StatsScreen() {
           <View
             style={[
               styles.allTimeCard,
-              { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
+              { backgroundColor: cardBg, borderColor: cardBorder },
             ]}
           >
             <View style={styles.allTimeGrid}>
@@ -461,7 +459,7 @@ export default function StatsScreen() {
             <View
               style={[
                 styles.topTasksCard,
-                { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow },
+                { backgroundColor: cardBg, borderColor: cardBorder },
               ]}
             >
               <Text style={[styles.topTasksTitle, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
@@ -502,7 +500,7 @@ export default function StatsScreen() {
       )}
 
       {!stats && !statsQuery.isLoading && configured && (
-        <View style={[styles.infoCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
           <Text style={[styles.infoText, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
             All-time stats appear once the Apps Script{"\n"}getCollectorStats endpoint is configured.
           </Text>
@@ -558,12 +556,12 @@ const styles = StyleSheet.create({
   heroCard: {
     flex: 1,
     minWidth: "44%" as unknown as number,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 3,
   },
   heroIconWrap: {
@@ -578,10 +576,14 @@ const styles = StyleSheet.create({
   heroLabel: { fontSize: 12, marginTop: 2 },
   heroSub: { fontSize: 11, marginTop: 4 },
   progressCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 18,
     marginBottom: 12,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   progressHeader: {
     flexDirection: "row" as const,
@@ -593,10 +595,14 @@ const styles = StyleSheet.create({
   progressPct: { fontSize: 17 },
   progressSub: { fontSize: 12, marginTop: 10 },
   weekCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 18,
     marginBottom: 12,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   weekRow: {
     flexDirection: "row" as const,
@@ -615,10 +621,14 @@ const styles = StyleSheet.create({
   },
   loadingText: { fontSize: 13 },
   allTimeCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   allTimeGrid: {
     flexDirection: "row" as const,
@@ -632,10 +642,14 @@ const styles = StyleSheet.create({
   allTimeDivider: { height: 1, marginBottom: 12 },
   allTimeSub: { fontSize: 11, marginTop: 8, textAlign: "center" as const },
   topTasksCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   topTasksTitle: {
     fontSize: 11,
@@ -674,10 +688,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 20,
     gap: 12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   leaderboardIcon: {
     width: 40,

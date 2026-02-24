@@ -39,7 +39,7 @@ export default React.memo(function SelectPicker({
   searchable = false,
   searchPlaceholder = "Search...",
 }: SelectPickerProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -80,6 +80,8 @@ export default React.memo(function SelectPicker({
     [onValueChange, close]
   );
 
+  const sheetBg = isDark ? '#1C1C20' : '#FFFFFF';
+
   const renderItem = useCallback(
     ({ item }: { item: Option }) => {
       const isSelected = item.value === selectedValue;
@@ -95,8 +97,7 @@ export default React.memo(function SelectPicker({
           <Text
             style={[
               styles.optionText,
-              { color: isSelected ? colors.accent : colors.textPrimary },
-              isSelected && styles.optionTextSelected,
+              { color: isSelected ? colors.accent : colors.textPrimary, fontFamily: isSelected ? "Lexend_600SemiBold" : "Lexend_400Regular" },
             ]}
           >
             {item.label}
@@ -112,7 +113,7 @@ export default React.memo(function SelectPicker({
 
   return (
     <View style={styles.container} testID={testID}>
-      {label ? <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: colors.textSecondary, fontFamily: "Lexend_600SemiBold" }]}>{label}</Text> : null}
       <TouchableOpacity
         style={[styles.trigger, { backgroundColor: colors.bgInput, borderColor: colors.border }]}
         onPress={open}
@@ -121,7 +122,7 @@ export default React.memo(function SelectPicker({
         <Text
           style={[
             styles.triggerText,
-            { color: selectedOption ? colors.textPrimary : colors.textMuted },
+            { color: selectedOption ? colors.textPrimary : colors.textMuted, fontFamily: "Lexend_500Medium" },
           ]}
           numberOfLines={1}
         >
@@ -147,7 +148,7 @@ export default React.memo(function SelectPicker({
             style={[
               styles.sheet,
               {
-                backgroundColor: colors.bgCard,
+                backgroundColor: sheetBg,
                 transform: [
                   {
                     translateY: fadeAnim.interpolate({
@@ -160,14 +161,14 @@ export default React.memo(function SelectPicker({
             ]}
           >
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.textPrimary }]}>
+            <Text style={[styles.sheetTitle, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]}>
               {label || "Select Option"}
             </Text>
             {searchable && (
               <View style={[styles.searchRow, { backgroundColor: colors.bgInput, borderColor: colors.border }]}>
                 <Search size={15} color={colors.textMuted} />
                 <TextInput
-                  style={[styles.searchInput, { color: colors.textPrimary }]}
+                  style={[styles.searchInput, { color: colors.textPrimary, fontFamily: "Lexend_400Regular" }]}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   placeholder={searchPlaceholder}
@@ -198,14 +199,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    fontWeight: "600" as const,
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   trigger: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
@@ -213,11 +213,10 @@ const styles = StyleSheet.create({
   triggerText: {
     flex: 1,
     fontSize: 15,
-    fontWeight: "500" as const,
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end" as const,
   },
   overlayTouch: {
@@ -240,7 +239,6 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 16,
-    fontWeight: "600" as const,
     marginBottom: 8,
   },
   list: {
@@ -251,21 +249,18 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     paddingVertical: 13,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 2,
   },
   optionText: {
     flex: 1,
     fontSize: 15,
   },
-  optionTextSelected: {
-    fontWeight: "600" as const,
-  },
   searchRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 8,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === "ios" ? 10 : 6,
@@ -274,7 +269,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    fontWeight: "400" as const,
     padding: 0,
   },
 });

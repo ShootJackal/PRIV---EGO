@@ -95,6 +95,9 @@ function CompactTimer() {
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
 
+  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
+  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
+
   useEffect(() => {
     if (Platform.OS !== "web") {
       Notifications.requestPermissionsAsync().catch(() => {});
@@ -201,15 +204,15 @@ function CompactTimer() {
 
   return (
     <Animated.View style={[timerStyles.card, {
-      backgroundColor: colors.bgCard,
-      borderColor: colors.border,
+      backgroundColor: cardBg,
+      borderColor: cardBorder,
       shadowColor: colors.shadow,
       transform: [{ scale: pulseAnim }],
     }]}>
       <View style={timerStyles.row}>
         <View style={[timerStyles.timeCircle, {
           borderColor: ringColor,
-          backgroundColor: finished ? colors.cancel + '15' : running ? colors.accentSoft : colors.bgElevated,
+          backgroundColor: finished ? colors.cancel + '12' : running ? colors.accentSoft : colors.bgElevated,
         }]}>
           <Text style={[timerStyles.timeText, {
             color: finished ? colors.cancel : running ? colors.textPrimary : colors.textSecondary,
@@ -326,6 +329,9 @@ export default function ToolsScreen() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
+
+  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
+  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   useEffect(() => {
     Animated.parallel([
@@ -463,8 +469,8 @@ export default function ToolsScreen() {
   const cardStyle = [
     styles.card,
     {
-      backgroundColor: colors.bgCard,
-      borderColor: colors.border,
+      backgroundColor: cardBg,
+      borderColor: cardBorder,
       shadowColor: colors.shadow,
     },
   ];
@@ -535,7 +541,10 @@ export default function ToolsScreen() {
                             <Text
                               style={[
                                 styles.rigChipText,
-                                { color: r.value === selectedRig ? colors.accent : colors.textSecondary },
+                                {
+                                  color: r.value === selectedRig ? colors.accent : colors.textSecondary,
+                                  fontFamily: r.value === selectedRig ? "Lexend_600SemiBold" : "Lexend_400Regular",
+                                },
                               ]}
                             >
                               {r.label}
@@ -559,7 +568,7 @@ export default function ToolsScreen() {
                   ) : null}
                   {(rigOptions.length === 0 || showManualRig) && (
                     <View style={[styles.rigInputRow, { marginTop: rigOptions.length > 0 ? 8 : 0 }]}>
-                      <Text style={[styles.rigPrefix, { color: colors.textMuted }]}>EGO-PROD-</Text>
+                      <Text style={[styles.rigPrefix, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>EGO-PROD-</Text>
                       <TextInput
                         style={[
                           styles.rigNumberInput,
@@ -567,6 +576,7 @@ export default function ToolsScreen() {
                             backgroundColor: colors.bgInput,
                             borderColor: colors.border,
                             color: colors.textPrimary,
+                            fontFamily: "Lexend_700Bold",
                           },
                         ]}
                         value={rigNumberInput}
@@ -638,6 +648,7 @@ export default function ToolsScreen() {
             onPress={openSlack}
             testID="slack-link"
             colors={colors}
+            isDark={isDark}
           />
           <QuickCard
             title="Hubstaff"
@@ -647,6 +658,7 @@ export default function ToolsScreen() {
             onPress={openHubstaff}
             testID="hubstaff-link"
             colors={colors}
+            isDark={isDark}
           />
           <QuickCard
             title="Report"
@@ -656,6 +668,7 @@ export default function ToolsScreen() {
             onPress={openAirtableRigIssue}
             testID="airtable-link"
             colors={colors}
+            isDark={isDark}
           />
         </View>
 
@@ -785,6 +798,7 @@ function QuickCard({
   onPress,
   testID,
   colors,
+  isDark,
 }: {
   title: string;
   subtitle: string;
@@ -793,8 +807,12 @@ function QuickCard({
   onPress: () => void;
   testID: string;
   colors: ReturnType<typeof useTheme>["colors"];
+  isDark: boolean;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
+  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   const onPressIn = useCallback(() => {
     Animated.spring(scaleAnim, {
@@ -825,8 +843,8 @@ function QuickCard({
         style={[
           styles.quickCard,
           {
-            backgroundColor: colors.bgCard,
-            borderColor: colors.border,
+            backgroundColor: cardBg,
+            borderColor: cardBorder,
             shadowColor: colors.shadow,
           },
         ]}
@@ -850,13 +868,13 @@ function QuickCard({
 
 const timerStyles = StyleSheet.create({
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 12,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
     marginBottom: 2,
   },
   row: {
@@ -913,10 +931,10 @@ const timerStyles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center" as const,
     justifyContent: "center" as const,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   progressBar: {
     height: 3,
@@ -959,12 +977,12 @@ const styles = StyleSheet.create({
   },
   sectionGap: { height: 24 },
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden" as const,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 3,
     marginBottom: 2,
   },
@@ -990,11 +1008,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase" as const,
   },
   settingDivider: { height: 1, marginLeft: 66 },
-  noRigText: {
-    fontSize: 13,
-    fontStyle: "italic" as const,
-    paddingVertical: 4,
-  },
   rigInputRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
@@ -1002,7 +1015,6 @@ const styles = StyleSheet.create({
   },
   rigPrefix: {
     fontSize: 15,
-    fontWeight: "500" as const,
   },
   rigNumberInput: {
     borderRadius: 10,
@@ -1010,7 +1022,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 17,
-    fontWeight: "700" as const,
     width: 56,
     textAlign: "center" as const,
   },
@@ -1028,7 +1039,6 @@ const styles = StyleSheet.create({
   },
   rigChipText: {
     fontSize: 11,
-    fontWeight: "600" as const,
   },
   manualRigBtn: {
     flexDirection: "row" as const,
@@ -1080,7 +1090,7 @@ const styles = StyleSheet.create({
     alignItems: "center" as const,
     justifyContent: "center" as const,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
+    shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 3,
   },

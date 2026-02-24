@@ -28,7 +28,7 @@ import SelectPicker from "../../components/SelectPicker";
 import ActionButton from "../../components/ActionButton";
 
 export default function DashboardScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const {
     configured,
     collectors,
@@ -168,13 +168,8 @@ export default function DashboardScreen() {
     return colors.accent;
   }, [colors]);
 
-  const cardShadow = {
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.09,
-    shadowRadius: 12,
-    elevation: 4,
-  };
+  const cardBg = isDark ? '#1C1C20' : '#FFFFFF';
+  const cardBorder = isDark ? '#2A2A30' : '#DDD9CF';
 
   return (
     <KeyboardAvoidingView
@@ -203,24 +198,24 @@ export default function DashboardScreen() {
         >
           <View style={styles.header}>
             <View>
-              <Text style={[styles.greeting, { color: colors.textMuted }]}>
+              <Text style={[styles.greeting, { color: colors.textMuted, fontFamily: "Lexend_600SemiBold" }]}>
                 {configured ? "Collection Hub" : "Offline Mode"}
               </Text>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>
+              <Text style={[styles.title, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
                 {selectedCollector
                   ? `${selectedCollector.name.split(" ")[0]}'s Workspace`
                   : "Let's Collect"}
               </Text>
               {selectedRig !== "" && (
-                <Text style={[styles.rigLabel, { color: colors.textMuted }]}>
+                <Text style={[styles.rigLabel, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
                   {selectedRig}
                 </Text>
               )}
             </View>
             {openTasks.length > 0 && (
-              <View style={[styles.activePill, { backgroundColor: colors.accentSoft }]}>
-                <Circle size={7} color={colors.accent} fill={colors.accent} />
-                <Text style={[styles.activePillText, { color: colors.accent }]}>
+              <View style={[styles.activePill, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
+                <Circle size={6} color={colors.accent} fill={colors.accent} />
+                <Text style={[styles.activePillText, { color: colors.accent, fontFamily: "Lexend_600SemiBold" }]}>
                   {openTasks.length} open
                 </Text>
               </View>
@@ -228,9 +223,9 @@ export default function DashboardScreen() {
           </View>
 
           {!configured && (
-            <View style={[styles.notice, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+            <View style={[styles.notice, { backgroundColor: cardBg, borderColor: cardBorder }]}>
               <AlertCircle size={15} color={colors.statusPending} />
-              <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
+              <Text style={[styles.noticeText, { color: colors.textSecondary, fontFamily: "Lexend_400Regular" }]}>
                 Set EXPO_PUBLIC_GOOGLE_SCRIPT_URL to connect
               </Text>
             </View>
@@ -239,62 +234,62 @@ export default function DashboardScreen() {
           {!!submitError && (
             <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
               <AlertCircle size={15} color={colors.cancel} />
-              <Text style={[styles.noticeText, { color: colors.cancel }]}>{submitError}</Text>
+              <Text style={[styles.noticeText, { color: colors.cancel, fontFamily: "Lexend_400Regular" }]}>{submitError}</Text>
             </View>
           )}
 
           {!!collectorsError && (
             <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
               <AlertCircle size={15} color={colors.cancel} />
-              <Text style={[styles.noticeText, { color: colors.cancel }]}>Collectors failed: {collectorsError}</Text>
+              <Text style={[styles.noticeText, { color: colors.cancel, fontFamily: "Lexend_400Regular" }]}>Collectors failed: {collectorsError}</Text>
             </View>
           )}
 
           {!!tasksError && (
             <View style={[styles.notice, { backgroundColor: colors.cancelBg, borderColor: colors.cancel + "30" }]}>
               <AlertCircle size={15} color={colors.cancel} />
-              <Text style={[styles.noticeText, { color: colors.cancel }]}>Tasks failed: {tasksError}</Text>
+              <Text style={[styles.noticeText, { color: colors.cancel, fontFamily: "Lexend_400Regular" }]}>Tasks failed: {tasksError}</Text>
             </View>
           )}
 
           {selectedCollectorName !== "" && todayLog.length > 0 && (
-            <View style={[styles.statsRow, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+            <View style={[styles.statsRow, { backgroundColor: cardBg, borderColor: cardBorder }]}>
               <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.textPrimary }]}>{todayStats.total}</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Tasks</Text>
+                <Text style={[styles.statNum, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>{todayStats.total}</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>Tasks</Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.complete }]}>{todayStats.completed}</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Done</Text>
+                <Text style={[styles.statNum, { color: colors.complete, fontFamily: "Lexend_700Bold" }]}>{todayStats.completed}</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>Done</Text>
               </View>
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: colors.accent }]}>{todayStats.totalLogged.toFixed(1)}h</Text>
-                <Text style={[styles.statLabel, { color: colors.textMuted }]}>Logged</Text>
+                <Text style={[styles.statNum, { color: colors.accent, fontFamily: "Lexend_700Bold" }]}>{todayStats.totalLogged.toFixed(1)}h</Text>
+                <Text style={[styles.statLabel, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>Logged</Text>
               </View>
             </View>
           )}
 
           {latestOpenTask && (
             <View style={[styles.activeTaskBanner, { backgroundColor: colors.accentSoft, borderColor: colors.accentDim }]}>
-              <Circle size={8} color={colors.accent} fill={colors.accent} />
+              <Circle size={7} color={colors.accent} fill={colors.accent} />
               <View style={styles.activeTaskInfo}>
-                <Text style={[styles.activeTaskName, { color: colors.accent }]} numberOfLines={1}>
+                <Text style={[styles.activeTaskName, { color: colors.accent, fontFamily: "Lexend_700Bold" }]} numberOfLines={1}>
                   {latestOpenTask.taskName}
                 </Text>
-                <Text style={[styles.activeTaskMeta, { color: colors.accentLight }]}>
+                <Text style={[styles.activeTaskMeta, { color: colors.accentLight, fontFamily: "Lexend_400Regular" }]}>
                   In Progress · {latestOpenTask.loggedHours}h / {latestOpenTask.plannedHours}h planned
                 </Text>
               </View>
             </View>
           )}
 
-          <View style={[styles.formCard, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
+          <View style={[styles.formCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             {!selectedCollectorName && (
               <View style={styles.formField}>
                 <View style={styles.fieldRow}>
-                  <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Collector</Text>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary, fontFamily: "Lexend_700Bold" }]}>Collector</Text>
                   {isLoadingCollectors && <ActivityIndicator size="small" color={colors.accent} />}
                 </View>
                 <SelectPicker
@@ -311,7 +306,7 @@ export default function DashboardScreen() {
 
             <View style={styles.formField}>
               <View style={styles.fieldRow}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Task</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, fontFamily: "Lexend_700Bold" }]}>Task</Text>
                 {isLoadingTasks && <ActivityIndicator size="small" color={colors.accent} />}
               </View>
               <SelectPicker
@@ -330,14 +325,15 @@ export default function DashboardScreen() {
 
             <View style={styles.formField}>
               <View style={styles.fieldRow}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Hours</Text>
-                <Text style={[styles.optionalTag, { color: colors.textMuted }]}>optional</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, fontFamily: "Lexend_700Bold" }]}>Hours</Text>
+                <Text style={[styles.optionalTag, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>optional</Text>
               </View>
               <TextInput
                 style={[styles.input, {
                   backgroundColor: colors.bgInput,
                   borderColor: colors.border,
                   color: colors.textPrimary,
+                  fontFamily: "Lexend_500Medium",
                 }]}
                 value={hoursToLog}
                 onChangeText={setHoursToLog}
@@ -349,7 +345,7 @@ export default function DashboardScreen() {
               {latestOpenTask && plannedHoursHint > 0 && (
                 <View style={styles.hintRow}>
                   <Info size={11} color={colors.statusPending} />
-                  <Text style={[styles.hintText, { color: colors.statusPending }]}>
+                  <Text style={[styles.hintText, { color: colors.statusPending, fontFamily: "Lexend_400Regular" }]}>
                     Planned chunk: {plannedHoursHint}h — you can log more if needed
                   </Text>
                 </View>
@@ -360,14 +356,15 @@ export default function DashboardScreen() {
 
             <View style={styles.formField}>
               <View style={styles.fieldRow}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Notes</Text>
-                <Text style={[styles.optionalTag, { color: colors.textMuted }]}>optional</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary, fontFamily: "Lexend_700Bold" }]}>Notes</Text>
+                <Text style={[styles.optionalTag, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>optional</Text>
               </View>
               <TextInput
                 style={[styles.input, styles.notesInput, {
                   backgroundColor: colors.bgInput,
                   borderColor: colors.border,
                   color: colors.textPrimary,
+                  fontFamily: "Lexend_400Regular",
                 }]}
                 value={notes}
                 onChangeText={setNotes}
@@ -429,8 +426,8 @@ export default function DashboardScreen() {
           )}
 
           {todayLog.length > 0 && (
-            <View style={[styles.logSection, { backgroundColor: colors.bgCard, borderColor: colors.border, ...cardShadow }]}>
-              <Text style={[styles.logTitle, { color: colors.textMuted }]}>
+            <View style={[styles.logSection, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <Text style={[styles.logTitle, { color: colors.textMuted, fontFamily: "Lexend_700Bold" }]}>
                 {"Today's Log"}
               </Text>
               {isLoadingLog && (
@@ -447,10 +444,10 @@ export default function DashboardScreen() {
                 >
                   <View style={[styles.logDot, { backgroundColor: statusColor(entry.status) }]} />
                   <View style={styles.logInfo}>
-                    <Text style={[styles.logName, { color: colors.textPrimary }]} numberOfLines={1}>
+                    <Text style={[styles.logName, { color: colors.textPrimary, fontFamily: "Lexend_600SemiBold" }]} numberOfLines={1}>
                       {entry.taskName}
                     </Text>
-                    <Text style={[styles.logMeta, { color: colors.textMuted }]}>
+                    <Text style={[styles.logMeta, { color: colors.textMuted, fontFamily: "Lexend_400Regular" }]}>
                       {entry.status} · {entry.loggedHours}h / {entry.plannedHours}h
                     </Text>
                   </View>
@@ -477,20 +474,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   greeting: {
-    fontSize: 12,
-    fontWeight: "600" as const,
-    letterSpacing: 0.6,
+    fontSize: 11,
+    letterSpacing: 0.8,
     marginBottom: 3,
     textTransform: "uppercase" as const,
   },
   title: {
     fontSize: 24,
-    fontWeight: "700" as const,
     letterSpacing: -0.6,
   },
   rigLabel: {
     fontSize: 13,
-    fontWeight: "500" as const,
     marginTop: 2,
   },
   activePill: {
@@ -501,15 +495,15 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
     marginTop: 6,
+    borderWidth: 1,
   },
   activePillText: {
-    fontSize: 12,
-    fontWeight: "600" as const,
+    fontSize: 11,
   },
   notice: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
     marginBottom: 14,
     gap: 10,
@@ -526,46 +520,55 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   statItem: { flex: 1, alignItems: "center" as const },
-  statNum: { fontSize: 20, fontWeight: "700" as const },
-  statLabel: { fontSize: 11, fontWeight: "500" as const, marginTop: 2 },
+  statNum: { fontSize: 20 },
+  statLabel: { fontSize: 11, marginTop: 2 },
   statDivider: { width: 1 },
   activeTaskBanner: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     gap: 10,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 14,
     borderWidth: 1,
   },
   activeTaskInfo: { flex: 1 },
-  activeTaskName: { fontSize: 13, fontWeight: "700" as const },
+  activeTaskName: { fontSize: 13 },
   activeTaskMeta: { fontSize: 12, marginTop: 1 },
   formCard: {
     borderRadius: 16,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   formField: { paddingVertical: 2 },
-  fieldLabel: { fontSize: 12, fontWeight: "700" as const, marginBottom: 8, letterSpacing: 0.4, textTransform: "uppercase" as const },
+  fieldLabel: { fontSize: 11, marginBottom: 8, letterSpacing: 0.5, textTransform: "uppercase" as const },
   fieldRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
     justifyContent: "space-between" as const,
     marginBottom: 8,
   },
-  optionalTag: { fontSize: 11, fontWeight: "500" as const },
+  optionalTag: { fontSize: 11 },
   separator: { height: 1, marginVertical: 12 },
   input: {
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    fontWeight: "500" as const,
     borderWidth: 1,
   },
   notesInput: { minHeight: 64, fontSize: 14 },
@@ -579,7 +582,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     lineHeight: 15,
-    fontWeight: "500" as const,
   },
   actionsRow: {
     flexDirection: "row" as const,
@@ -591,11 +593,15 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 10,
     borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   logTitle: {
     fontSize: 11,
-    fontWeight: "700" as const,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginBottom: 12,
     textTransform: "uppercase" as const,
   },
@@ -608,7 +614,7 @@ const styles = StyleSheet.create({
   logItemLast: { borderBottomWidth: 0 },
   logDot: { width: 7, height: 7, borderRadius: 4, marginRight: 12 },
   logInfo: { flex: 1 },
-  logName: { fontSize: 14, fontWeight: "600" as const },
+  logName: { fontSize: 14 },
   logMeta: { fontSize: 12, marginTop: 2 },
   spacer: { height: 20 },
 });

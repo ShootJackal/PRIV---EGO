@@ -13,6 +13,7 @@ import {
   Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../providers/ThemeProvider";
 
@@ -111,127 +112,202 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
 
   const BOTTOM_PAD = insets.bottom > 0 ? insets.bottom : 12;
 
-  const gradientColors = isDark
-    ? ["transparent", "rgba(14,14,16,0.85)", "rgba(14,14,16,0.96)", "rgba(14,14,16,1)"] as const
-    : ["transparent", "rgba(250,247,240,0.8)", "rgba(250,247,240,0.95)", "rgba(250,247,240,1)"] as const;
+  const islandBg = isDark ? "rgba(28,28,32,0.92)" : "rgba(255,255,255,0.92)";
+  const islandBorder = isDark ? "#2A2A30" : "#DDD9CF";
 
-  const islandBg = isDark ? "#1A1A1F" : "#FFFFFF";
-  const islandBorder = isDark ? "#2E2E38" : "#DDD8C6";
-  const shadowColor = isDark ? "#7C3AED" : "#7C3AED";
+  const blurTint = isDark ? "dark" : "light";
 
   return (
     <View style={[barStyles.outerWrap, { paddingBottom: BOTTOM_PAD }]}>
       <LinearGradient
-        colors={gradientColors}
+        colors={
+          isDark
+            ? ["transparent", "rgba(16,16,18,0.6)", "rgba(16,16,18,0.92)", "rgba(16,16,18,1)"] as const
+            : ["transparent", "rgba(245,243,239,0.5)", "rgba(245,243,239,0.88)", "rgba(245,243,239,1)"] as const
+        }
         style={barStyles.gradient}
-        locations={[0, 0.3, 0.65, 1]}
+        locations={[0, 0.25, 0.6, 1]}
         pointerEvents="none"
       />
-      <View
-        style={[
-          barStyles.island,
-          {
-            backgroundColor: islandBg,
-            borderColor: islandBorder,
-            shadowColor,
-          },
-          isDark
-            ? { shadowOpacity: 0.2, shadowRadius: 30, elevation: 32 }
-            : { shadowOpacity: 0.12, shadowRadius: 24, elevation: 24 },
-        ]}
-      >
-        {isDark && (
-          <LinearGradient
-            colors={["rgba(167,139,250,0.08)", "transparent"] as const}
-            style={barStyles.islandTopSheen}
-            locations={[0, 1]}
-            pointerEvents="none"
-          />
-        )}
-        {!isDark && (
-          <LinearGradient
-            colors={["rgba(124,58,237,0.04)", "transparent"] as const}
-            style={barStyles.islandTopSheen}
-            locations={[0, 1]}
-            pointerEvents="none"
-          />
-        )}
 
-        <Animated.View
+      {Platform.OS !== "web" ? (
+        <BlurView
+          intensity={40}
+          tint={blurTint}
           style={[
-            barStyles.slider,
+            barStyles.blurIsland,
             {
-              backgroundColor: colors.accent,
-              width: TAB_WIDTH * 0.48,
-              left: TAB_WIDTH * 0.26,
-              transform: [{ translateX: sliderAnim }],
+              borderColor: islandBorder,
             },
           ]}
-        />
+        >
+          <View style={barStyles.islandInner}>
+            <Animated.View
+              style={[
+                barStyles.slider,
+                {
+                  backgroundColor: colors.accent,
+                  width: TAB_WIDTH * 0.48,
+                  left: TAB_WIDTH * 0.26,
+                  transform: [{ translateX: sliderAnim }],
+                },
+              ]}
+            />
 
-        {TAB_ORDER.map((tabName, index) => {
-          const isFocused = state.index === index;
-          const cfg = TAB_CONFIG[tabName];
-          const isLive = tabName === "live";
-          const iconColor = isFocused
-            ? isLive
-              ? colors.complete
-              : colors.accent
-            : colors.textMuted;
+            {TAB_ORDER.map((tabName, index) => {
+              const isFocused = state.index === index;
+              const cfg = TAB_CONFIG[tabName];
+              const isLive = tabName === "live";
+              const iconColor = isFocused
+                ? isLive
+                  ? colors.complete
+                  : colors.accent
+                : colors.textMuted;
 
-          return (
-            <TouchableOpacity
-              key={tabName}
-              style={[barStyles.tab, { width: TAB_WIDTH }]}
-              onPress={() => handlePress(tabName, index)}
-              activeOpacity={0.7}
-              testID={`tab-${tabName}`}
-            >
-              <View
-                style={[
-                  barStyles.iconWrap,
-                  isFocused && {
-                    backgroundColor: isLive
-                      ? colors.complete + "18"
-                      : colors.accent + "14",
-                    borderRadius: 12,
-                  },
-                ]}
+              return (
+                <TouchableOpacity
+                  key={tabName}
+                  style={[barStyles.tab, { width: TAB_WIDTH }]}
+                  onPress={() => handlePress(tabName, index)}
+                  activeOpacity={0.7}
+                  testID={`tab-${tabName}`}
+                >
+                  <View
+                    style={[
+                      barStyles.iconWrap,
+                      isFocused && {
+                        backgroundColor: isLive
+                          ? colors.complete + "18"
+                          : colors.accent + "14",
+                        borderRadius: 12,
+                      },
+                    ]}
+                  >
+                    {cfg.icon(iconColor, 20)}
+                    {isLive && !isFocused && <AlertDot />}
+                  </View>
+                  <Text
+                    style={[
+                      barStyles.label,
+                      {
+                        color: iconColor,
+                        fontFamily: isFocused ? "Lexend_700Bold" : "Lexend_400Regular",
+                        fontSize: isLive ? 8 : 9,
+                        letterSpacing: isLive ? 1.5 : 0.3,
+                      },
+                    ]}
+                  >
+                    {cfg.title}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </BlurView>
+      ) : (
+        <View
+          style={[
+            barStyles.island,
+            {
+              backgroundColor: islandBg,
+              borderColor: islandBorder,
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              barStyles.slider,
+              {
+                backgroundColor: colors.accent,
+                width: TAB_WIDTH * 0.48,
+                left: TAB_WIDTH * 0.26,
+                transform: [{ translateX: sliderAnim }],
+              },
+            ]}
+          />
+
+          {TAB_ORDER.map((tabName, index) => {
+            const isFocused = state.index === index;
+            const cfg = TAB_CONFIG[tabName];
+            const isLive = tabName === "live";
+            const iconColor = isFocused
+              ? isLive
+                ? colors.complete
+                : colors.accent
+              : colors.textMuted;
+
+            return (
+              <TouchableOpacity
+                key={tabName}
+                style={[barStyles.tab, { width: TAB_WIDTH }]}
+                onPress={() => handlePress(tabName, index)}
+                activeOpacity={0.7}
+                testID={`tab-${tabName}`}
               >
-                {cfg.icon(iconColor, 20)}
-                {isLive && !isFocused && <AlertDot />}
-              </View>
-              <Text
-                style={[
-                  barStyles.label,
-                  {
-                    color: iconColor,
-                    fontFamily: isFocused ? "Lexend_700Bold" : "Lexend_400Regular",
-                    fontSize: isLive ? 8 : 9,
-                    letterSpacing: isLive ? 1.5 : 0.3,
-                  },
-                ]}
-              >
-                {cfg.title}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+                <View
+                  style={[
+                    barStyles.iconWrap,
+                    isFocused && {
+                      backgroundColor: isLive
+                        ? colors.complete + "18"
+                        : colors.accent + "14",
+                      borderRadius: 12,
+                    },
+                  ]}
+                >
+                  {cfg.icon(iconColor, 20)}
+                  {isLive && !isFocused && <AlertDot />}
+                </View>
+                <Text
+                  style={[
+                    barStyles.label,
+                    {
+                      color: iconColor,
+                      fontFamily: isFocused ? "Lexend_700Bold" : "Lexend_400Regular",
+                      fontSize: isLive ? 8 : 9,
+                      letterSpacing: isLive ? 1.5 : 0.3,
+                    },
+                  ]}
+                >
+                  {cfg.title}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
 
 function TaskFlowHeader() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const glowAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.5, duration: 2200, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [glowAnim]);
+
   return (
-    <View style={[hStyles.wrap, { backgroundColor: colors.bg }]}>
+    <View style={hStyles.wrap}>
       <Image
         source={require("../../assets/images/taskflow-logo.png")}
         style={hStyles.logoIcon}
         resizeMode="contain"
       />
-      <Text style={[hStyles.appNameText, { color: colors.textPrimary }]}>TaskFlow</Text>
+      <Animated.Text
+        style={[
+          hStyles.appNameText,
+          { color: colors.textPrimary, opacity: glowAnim },
+        ]}
+      >
+        TaskFlow
+      </Animated.Text>
     </View>
   );
 }
@@ -278,7 +354,7 @@ function SwipeWrapper({
 }
 
 export default function TabLayout() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   return (
     <Tabs
@@ -329,26 +405,27 @@ const barStyles = StyleSheet.create({
     bottom: -20,
     left: 0,
     right: 0,
-    height: 150,
+    height: 160,
   },
-  island: {
-    flexDirection: "row",
-    borderRadius: 30,
+  blurIsland: {
+    borderRadius: 28,
     borderWidth: 1,
-    paddingVertical: 6,
-    shadowOffset: { width: 0, height: -4 },
-    position: "relative",
     overflow: "hidden",
     width: "100%",
   },
-  islandTopSheen: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 20,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+  islandInner: {
+    flexDirection: "row",
+    paddingVertical: 6,
+    position: "relative",
+  },
+  island: {
+    flexDirection: "row",
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingVertical: 6,
+    position: "relative",
+    overflow: "hidden",
+    width: "100%",
   },
   slider: {
     position: "absolute",
@@ -369,14 +446,6 @@ const barStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-  },
-  liveBlip: {
-    position: "absolute",
-    top: 2,
-    right: 4,
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
   },
   alertDot: {
     position: "absolute",
@@ -400,12 +469,12 @@ const hStyles = StyleSheet.create({
     gap: 8,
   },
   logoIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 7,
   },
   appNameText: {
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: "Lexend_700Bold",
     letterSpacing: -0.3,
   },

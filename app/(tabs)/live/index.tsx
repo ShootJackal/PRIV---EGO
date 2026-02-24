@@ -11,7 +11,7 @@ import {
   Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Sun, Moon, BookOpen, ChevronRight, Trophy } from "lucide-react-native";
+import { Sun, Moon, BookOpen, ChevronRight, Trophy, Radio, Send, Wrench, BarChart3 } from "lucide-react-native";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -203,31 +203,33 @@ function SkyDayTracker() {
     }).start();
   }, [progress, sunSlide]);
 
+  const PILL_WIDTH = SCREEN_WIDTH * 0.55;
+  const DOT_SIZE = 14;
+
   const sliderLeft = sunSlide.interpolate({
     inputRange: [0, 1],
-    outputRange: ['2%', '88%'],
+    outputRange: [2, PILL_WIDTH - DOT_SIZE - 2],
   });
 
-  const trackBg = isDark ? '#1A1A2E' : '#E8E4D6';
+  const trackBg = isDark ? '#1E1E28' : '#E5E2DA';
+  const fillBg = isDark ? sky.left + '80' : sky.left + '50';
 
   return (
     <View style={skyStyles.container}>
       <View style={skyStyles.labelRow}>
-        <Sun size={10} color={isDark ? '#FBBF24' : '#D97706'} />
+        <Sun size={9} color={isDark ? '#FBBF24' : '#D97706'} />
         <Text style={[skyStyles.timeLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>
           {sky.phase.toUpperCase()}
         </Text>
-        <Moon size={10} color={isDark ? '#818CF8' : '#6366F1'} />
+        <Moon size={9} color={isDark ? '#818CF8' : '#6366F1'} />
       </View>
-      <View style={[skyStyles.track, { backgroundColor: trackBg }]}>
-        <View style={[skyStyles.gradientFill, { backgroundColor: sky.left, width: `${Math.max(progress * 100, 2)}%` as any }]}>
-          <View style={[skyStyles.gradientOverlay, { backgroundColor: sky.right, opacity: 0.5 }]} />
-        </View>
-        <Animated.View style={[skyStyles.slider, { left: sliderLeft, backgroundColor: sky.accent, shadowColor: sky.accent }]}>
+      <View style={[skyStyles.pillTrack, { backgroundColor: trackBg, width: PILL_WIDTH }]}>
+        <View style={[skyStyles.pillFill, { backgroundColor: fillBg, width: `${Math.max(progress * 100, 2)}%` as any }]} />
+        <Animated.View style={[skyStyles.pillDot, { left: sliderLeft, backgroundColor: sky.accent, shadowColor: sky.accent }]}>
           {isDay ? (
-            <Sun size={9} color="#FFFFFF" />
+            <Sun size={8} color="#FFFFFF" />
           ) : (
-            <Moon size={9} color="#FFFFFF" />
+            <Moon size={8} color="#FFFFFF" />
           )}
         </Animated.View>
       </View>
@@ -237,51 +239,43 @@ function SkyDayTracker() {
 
 const skyStyles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    gap: 4,
+    alignItems: 'center' as const,
+    paddingVertical: 2,
+    gap: 3,
   },
   labelRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
+    gap: 6,
     paddingHorizontal: 2,
   },
   timeLabel: {
-    fontSize: 8,
-    fontWeight: '600' as const,
-    letterSpacing: 1.5,
+    fontSize: 7,
+    fontWeight: '700' as const,
+    letterSpacing: 1.8,
   },
-  track: {
-    height: 4,
-    borderRadius: 2,
+  pillTrack: {
+    height: 18,
+    borderRadius: 9,
     overflow: 'visible' as const,
     position: 'relative' as const,
   },
-  gradientFill: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden' as const,
-  },
-  gradientOverlay: {
-    position: 'absolute' as const,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: '50%' as any,
-    borderRadius: 2,
-  },
-  slider: {
-    position: 'absolute' as const,
-    top: -7,
-    width: 18,
+  pillFill: {
     height: 18,
     borderRadius: 9,
+    overflow: 'hidden' as const,
+  },
+  pillDot: {
+    position: 'absolute' as const,
+    top: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
     elevation: 4,
   },
 });
@@ -315,7 +309,6 @@ function NewsTicker({
 
     const runSegment = () => {
       if (cancelled) return;
-      const seg = segments[currentIdx % segments.length];
       setActiveIdx(currentIdx % segments.length);
 
       pillSlide.setValue(-100);
@@ -326,6 +319,7 @@ function NewsTicker({
         useNativeDriver: true,
       }).start();
 
+      const seg = segments[currentIdx % segments.length];
       const isAnnouncement = seg.pill === "ALERT";
       const isRecollect = seg.pill === "RECOLLECT";
       const textWidth = seg.text.length * 7 + 350;
@@ -426,6 +420,37 @@ const EASTER_EGG_LINES = [
   "$ ping ego-hq → 64 bytes: time=0.42ms",
 ];
 
+function EmbossedSymbols({ isDark }: { isDark: boolean }) {
+  const opacity = isDark ? 0.04 : 0.035;
+  return (
+    <View style={embossStyles.container} pointerEvents="none">
+      <View style={[embossStyles.row]}>
+        <Radio size={28} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
+        <Send size={24} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
+        <BarChart3 size={26} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
+        <Wrench size={24} color={isDark ? '#FFFFFF' : '#000000'} style={{ opacity }} />
+      </View>
+    </View>
+  );
+}
+
+const embossStyles = StyleSheet.create({
+  container: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  row: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 20,
+  },
+});
+
 export default function LiveScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -447,8 +472,8 @@ export default function LiveScreen() {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(nameGlow, { toValue: 0.9, duration: 2800, useNativeDriver: false }),
-        Animated.timing(nameGlow, { toValue: 0.3, duration: 2800, useNativeDriver: false }),
+        Animated.timing(nameGlow, { toValue: 1, duration: 2400, useNativeDriver: true }),
+        Animated.timing(nameGlow, { toValue: 0.4, duration: 2400, useNativeDriver: true }),
       ])
     ).start();
   }, [nameGlow]);
@@ -598,9 +623,6 @@ export default function LiveScreen() {
     lines.push({ id: `sys_${ts}_1`, text: "═".repeat(40), type: "divider" });
     lines.push({ id: `sys_${ts}_2`, text: "", type: "empty" });
 
-    const mxRigs = mxCollectors.length > 0 ? mxCollectors.reduce((s, c) => s + c.rigs.length, 0) : Math.max(Math.floor(collectors.length * 0.55), 1);
-    const sfRigs = sfCollectors.length > 0 ? sfCollectors.reduce((s, c) => s + c.rigs.length, 0) : 3;
-
     lines.push({ id: `mx_${ts}_h`, text: "EGO-MX  /  LOS CABOS", type: "header" });
     const mxCount = mxCollectors.length > 0 ? mxCollectors.length : Math.max(Math.floor(collectors.length * 0.55), 1);
     lines.push({ id: `mx_${ts}_c`, text: `Collectors:   ${mxCount}`, type: "data", color: colors.textPrimary });
@@ -744,44 +766,50 @@ export default function LiveScreen() {
     }
   }, [handleFakeDelete]);
 
-  const livePillColor = isDark ? colors.terminalGreen : '#0D7C4A';
-  const bgMain = isDark ? colors.bg : '#FAF7F0';
+  const livePillColor = isDark ? colors.terminalGreen : '#0D8040';
 
   return (
-    <View style={[styles.container, { backgroundColor: bgMain, paddingTop: insets.top }]}>
-      <View style={styles.brandRow}>
-        <Image
-          source={require("../../../assets/images/taskflow-logo.png")}
-          style={styles.brandLogo}
-          resizeMode="contain"
-        />
+    <View style={[styles.container, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
+      <View style={styles.topBar}>
+        <Animated.View style={[styles.brandRow, { opacity: nameGlow }]}>
+          <Image
+            source={require("../../../assets/images/taskflow-logo.png")}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+          <Text style={[styles.brandName, { color: colors.textPrimary, fontFamily: "Lexend_700Bold" }]}>
+            TaskFlow
+          </Text>
+        </Animated.View>
+        <SkyDayTracker />
       </View>
 
-      <SkyDayTracker />
-
-      <View style={[styles.header, {
-        backgroundColor: isDark ? '#151518' : '#FFFEF6',
+      <View style={[styles.infoCard, {
+        backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
+        borderColor: isDark ? '#2A2A30' : '#DDD9CF',
         shadowColor: isDark ? colors.accent : '#1A1400',
-        borderColor: isDark ? '#2A2A30' : '#DDD8C6',
       }]}>
-        <View style={styles.headerLeft}>
-          <Text style={[styles.headerUserLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>USER</Text>
-          <Text style={[styles.headerUserName, { color: colors.textPrimary, fontFamily: FONT_MONO }]} numberOfLines={1}>
-            {selectedCollectorName || 'Not Selected'}
-          </Text>
-        </View>
-        <View style={styles.headerRight}>
+        <EmbossedSymbols isDark={isDark} />
+        <View style={styles.infoTop}>
+          <View style={styles.infoLeft}>
+            <Text style={[styles.userLabel, { color: colors.textMuted, fontFamily: FONT_MONO }]}>USER</Text>
+            <Text style={[styles.userName, { color: colors.textPrimary, fontFamily: FONT_MONO }]} numberOfLines={1}>
+              {selectedCollectorName || 'Not Selected'}
+            </Text>
+          </View>
           <LiveClock size="small" showMs={false} />
+        </View>
+        <View style={styles.infoBottom}>
           <View style={[
-            styles.livePill,
+            styles.onlinePill,
             {
-              backgroundColor: isOnline ? livePillColor + '1A' : colors.cancel + '1A',
-              borderColor: isOnline ? livePillColor + '55' : colors.cancel + '55',
+              backgroundColor: isOnline ? livePillColor + '14' : colors.cancel + '14',
+              borderColor: isOnline ? livePillColor + '40' : colors.cancel + '40',
             }
           ]}>
-            <View style={[styles.statusDot, { backgroundColor: isOnline ? livePillColor : colors.cancel }]} />
-            <Text style={[styles.liveText, { color: isOnline ? livePillColor : colors.cancel, fontFamily: FONT_MONO }]}>
-              {isOnline ? "ONLINE" : "OFF"}
+            <View style={[styles.onlineDot, { backgroundColor: isOnline ? livePillColor : colors.cancel }]} />
+            <Text style={[styles.onlineText, { color: isOnline ? livePillColor : colors.cancel, fontFamily: FONT_MONO }]}>
+              {isOnline ? `ONLINE · ${totalRigCount} RIGS` : "OFFLINE"}
             </Text>
           </View>
         </View>
@@ -790,8 +818,8 @@ export default function LiveScreen() {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#1C1C1F' : '#FFFEF6',
-            borderColor: isDark ? '#2E2E34' : '#DDD8C6',
+            backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
+            borderColor: isDark ? '#2A2A30' : '#DDD9CF',
           }]}
           onPress={toggleTheme}
           activeOpacity={0.7}
@@ -805,8 +833,8 @@ export default function LiveScreen() {
 
         <TouchableOpacity
           style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#1C1C1F' : '#FFFEF6',
-            borderColor: isDark ? '#2E2E34' : '#DDD8C6',
+            backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
+            borderColor: isDark ? '#2A2A30' : '#DDD9CF',
           }]}
           onPress={() => setShowTutorial(!showTutorial)}
           activeOpacity={0.7}
@@ -820,7 +848,7 @@ export default function LiveScreen() {
 
         <TouchableOpacity
           style={[styles.actionBtn, {
-            backgroundColor: isDark ? '#1A1230' : '#F4EDFF',
+            backgroundColor: isDark ? '#1A1230' : '#F0EAFF',
             borderColor: isDark ? colors.accent + '30' : colors.accent + '30',
           }]}
           onPress={() => router.push("/stats/leaderboard" as any)}
@@ -836,8 +864,8 @@ export default function LiveScreen() {
 
       {showTutorial && (
         <View style={[styles.tutorialCard, {
-          backgroundColor: isDark ? '#1C1C1F' : '#FFFEF6',
-          borderColor: isDark ? '#2E2E34' : '#DDD8C6',
+          backgroundColor: isDark ? '#1C1C20' : '#FFFFFF',
+          borderColor: isDark ? '#2A2A30' : '#DDD9CF',
         }]}>
           <Text style={[styles.tutorialTitle, { color: colors.accent, fontFamily: FONT_MONO }]}>
             QUICK START GUIDE
@@ -906,8 +934,8 @@ export default function LiveScreen() {
         )}
 
         <View style={[styles.terminalWindow, {
-          backgroundColor: isDark ? '#0C0C0E' : '#FFFEF8',
-          borderColor: isDark ? '#222228' : '#DDD8C6',
+          backgroundColor: isDark ? '#0E0E12' : '#FAFAF6',
+          borderColor: isDark ? '#222228' : '#DDD9CF',
           shadowColor: isDark ? colors.accent : '#1A1400',
         }]}>
           <CmdTerminalFeed lines={liveLines} isLoading={isFeeding} onHeaderPress={handleTerminalTap} />
@@ -915,8 +943,8 @@ export default function LiveScreen() {
       </ScrollView>
 
       <View style={[styles.tickerBar, {
-        backgroundColor: isDark ? '#111114' : '#EDE9DF',
-        borderTopColor: isDark ? '#1E1E24' : '#D8D3C4',
+        backgroundColor: isDark ? '#131316' : '#ECEAE4',
+        borderTopColor: isDark ? '#1E1E24' : '#DDD9CF',
       }]}>
         <NewsTicker segments={tickerSegments} colors={colors} isDark={isDark} />
       </View>
@@ -979,8 +1007,8 @@ const clockStyles = StyleSheet.create({
     fontWeight: "400" as const,
   },
   clockSmall: {
-    fontSize: 15,
-    letterSpacing: 1.5,
+    fontSize: 14,
+    letterSpacing: 1.2,
     fontWeight: "800" as const,
   },
   msSmall: {
@@ -1032,67 +1060,82 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topBar: {
+    alignItems: 'center' as const,
+    paddingTop: 4,
+    paddingBottom: 4,
+    gap: 2,
+  },
   brandRow: {
-    alignItems: "center",
-    paddingTop: 6,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
     paddingBottom: 2,
   },
   brandLogo: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  brandName: {
+    fontSize: 20,
+    letterSpacing: -0.4,
+  },
+  infoCard: {
     marginHorizontal: 12,
     marginBottom: 8,
     borderRadius: 16,
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    overflow: 'hidden' as const,
   },
-  headerLeft: {
+  infoTop: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    marginBottom: 6,
+  },
+  infoLeft: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
-  headerUserLabel: {
-    fontSize: 8,
-    fontWeight: "700" as const,
+  userLabel: {
+    fontSize: 7,
+    fontWeight: '700' as const,
     letterSpacing: 2,
   },
-  headerUserName: {
-    fontSize: 14,
-    fontWeight: "900" as const,
-    letterSpacing: 0.5,
+  userName: {
+    fontSize: 13,
+    fontWeight: '800' as const,
+    letterSpacing: 0.3,
   },
-  headerRight: {
-    alignItems: "flex-end",
-    gap: 3,
+  infoBottom: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
   },
-  livePill: {
-    flexDirection: "row",
-    alignItems: "center",
+  onlinePill: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 1,
   },
-  statusDot: {
-    width: 6,
-    height: 6,
+  onlineDot: {
+    width: 5,
+    height: 5,
     borderRadius: 3,
   },
-  liveText: {
-    fontSize: 10,
-    fontWeight: "800" as const,
-    letterSpacing: 1.5,
+  onlineText: {
+    fontSize: 8,
+    fontWeight: '800' as const,
+    letterSpacing: 1.2,
   },
 
   quickActions: {
@@ -1168,10 +1211,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 6,
     overflow: "hidden",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
   fakeDeleteOverlay: {
     borderRadius: 14,
