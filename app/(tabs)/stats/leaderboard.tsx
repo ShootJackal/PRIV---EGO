@@ -8,10 +8,11 @@ import {
   RefreshControl,
   Dimensions,
   TouchableOpacity,
+  Modal,
   Platform,
 } from "react-native";
 import { Stack } from "expo-router";
-import { Trophy, Flame, TrendingUp, Clock, CheckCircle, Swords } from "lucide-react-native";
+import { Trophy, Flame, TrendingUp, Clock, CheckCircle, Swords, ChevronDown, Calendar, X } from "lucide-react-native";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { LeaderboardEntry } from "../../../types";
@@ -20,17 +21,58 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type TabId = "ALL" | "SF" | "MX" | "VS";
 
-function getWeekRange(): string {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
+interface WeekOption {
+  label: string;
+  sublabel?: string;
+  value: string;
+}
+
+function getMondayForDate(d: Date): Date {
+  const result = new Date(d);
+  const dayOfWeek = result.getDay();
   const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const start = new Date(now);
-  start.setDate(now.getDate() - daysFromMonday);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
+  result.setDate(result.getDate() - daysFromMonday);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function formatWeekRange(mondayStr: string): string {
+  const monday = new Date(mondayStr + "T00:00:00");
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
   const fmt = (d: Date) =>
     `${d.toLocaleString("default", { month: "short" })} ${d.getDate()}`;
-  return `${fmt(start)} – ${fmt(end)}`;
+  return `${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+function getWeekOptions(): WeekOption[] {
+  const options: WeekOption[] = [];
+  const now = new Date();
+
+  for (let i = 0; i < 8; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    const monday = getMondayForDate(d);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const fmt = (dt: Date) =>
+      `${dt.toLocaleString("default", { month: "short" })} ${dt.getDate()}`;
+    const mondayStr = monday.toISOString().slice(0, 10);
+
+    options.push({
+      label: i === 0 ? "This Week" : i === 1 ? "Last Week" : `${fmt(monday)} – ${fmt(sunday)}`,
+      sublabel: `${fmt(monday)} – ${fmt(sunday)}`,
+      value: mondayStr,
+    });
+  }
+
+  options.push({
+    label: "All Time",
+    value: "all",
+  });
+
+  return options;
 }
 
 function PodiumBlock({
@@ -40,6 +82,7 @@ function PodiumBlock({
   colors,
   isDark,
   isYou,
+  isAllTime,
 }: {
   entry: LeaderboardEntry | null;
   place: 1 | 2 | 3;
@@ -47,6 +90,7 @@ function PodiumBlock({
   colors: ReturnType<typeof useTheme>["colors"];
   isDark: boolean;
   isYou: boolean;
+  isAllTime: boolean;
 }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
@@ -152,7 +196,7 @@ function PodiumBlock({
               { color: colors.textMuted, fontFamily: "Lexend_400Regular" },
             ]}
           >
-            {entry.weeklyCompleted} done
+            {entry.weeklyCompleted} {isAllTime ? "entries" : "done"}
           </Text>
         </>
       )}
@@ -187,6 +231,7 @@ function RankRow({
   index,
   colors,
   isDark,
+  isAllTime,
 }: {
   entry: LeaderboardEntry;
   maxHours: number;
@@ -194,6 +239,7 @@ function RankRow({
   index: number;
   colors: ReturnType<typeof useTheme>["colors"];
   isDark: boolean;
+  isAllTime: boolean;
 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -338,18 +384,7 @@ function RankRow({
                 { color: colors.textSecondary, fontFamily: "Lexend_400Regular" },
               ]}
             >
-              {entry.weeklyCompleted} done
-            </Text>
-          </View>
-          <View style={rankStyles.statItem}>
-            <TrendingUp size={10} color={colors.accent} />
-            <Text
-              style={[
-                rankStyles.statText,
-                { color: colors.textSecondary, fontFamily: "Lexend_400Regular" },
-              ]}
-            >
-              {entry.weeklyAssigned} assigned
+              {entry.weeklyCompleted} {isAllTime ? "entries" : "done"}
             </Text>
           </View>
         </View>
@@ -394,11 +429,13 @@ function VSScreen({
   mxEntries,
   colors,
   isDark,
+  periodLabel,
 }: {
   sfEntries: LeaderboardEntry[];
   mxEntries: LeaderboardEntry[];
   colors: ReturnType<typeof useTheme>["colors"];
   isDark: boolean;
+  periodLabel: string;
 }) {
   const sfStats = useMemo(() => computeTeamStats(sfEntries), [sfEntries]);
   const mxStats = useMemo(() => computeTeamStats(mxEntries), [mxEntries]);
@@ -498,7 +535,7 @@ function VSScreen({
 
       <View style={[vsStyles.barsCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
         <Text style={[vsStyles.barsTitle, { color: colors.textMuted, fontFamily: "Lexend_500Medium" }]}>
-          TOTAL HOURS THIS WEEK
+          TOTAL HOURS — {periodLabel.toUpperCase()}
         </Text>
         <View style={vsStyles.barRow}>
           <Text style={[vsStyles.barLabel, { color: "#3B82F6", fontFamily: "Lexend_600SemiBold" }]}>SF</Text>
@@ -578,12 +615,38 @@ function VSScreen({
 
 export default function LeaderboardScreen() {
   const { colors, isDark } = useTheme();
-  const { leaderboard, isLoadingLeaderboard, selectedCollectorName, refreshData } =
-    useCollection();
+  const {
+    leaderboard,
+    leaderboardWeekStart,
+    isLoadingLeaderboard,
+    selectedCollectorName,
+    refreshData,
+    setLeaderboardWeekStart,
+  } = useCollection();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("ALL");
+  const [weekPickerOpen, setWeekPickerOpen] = useState(false);
   const tabAnim = useRef(new Animated.Value(0)).current;
   const headerFade = useRef(new Animated.Value(0)).current;
+
+  const weekOptions = useMemo(() => getWeekOptions(), []);
+
+  const isAllTime = leaderboardWeekStart === "all";
+
+  const selectedWeekOption = useMemo(
+    () => weekOptions.find((w) => w.value === leaderboardWeekStart) ?? weekOptions[0],
+    [weekOptions, leaderboardWeekStart]
+  );
+
+  const periodLabel = useMemo(() => {
+    if (isAllTime) return "All Time";
+    return selectedWeekOption.sublabel ?? selectedWeekOption.label;
+  }, [isAllTime, selectedWeekOption]);
+
+  const headerTitle = useMemo(() => {
+    if (isAllTime) return "ALL TIME RANKS";
+    return "WEEKLY RANKS";
+  }, [isAllTime]);
 
   useEffect(() => {
     Animated.timing(headerFade, {
@@ -612,6 +675,15 @@ export default function LeaderboardScreen() {
     refreshData();
     setTimeout(() => setRefreshing(false), 1200);
   }, [refreshData]);
+
+  const handleWeekSelect = useCallback(
+    (value: string) => {
+      console.log("[Leaderboard] Week selected:", value);
+      setLeaderboardWeekStart(value);
+      setWeekPickerOpen(false);
+    },
+    [setLeaderboardWeekStart]
+  );
 
   const normalizedSelected = selectedCollectorName
     .replace(/\s*\(.*?\)\s*$/g, "")
@@ -646,8 +718,6 @@ export default function LeaderboardScreen() {
 
   const top3 = useMemo(() => filteredLeaderboard.slice(0, 3), [filteredLeaderboard]);
   const rest = useMemo(() => filteredLeaderboard.slice(3), [filteredLeaderboard]);
-
-  const weekRange = useMemo(() => getWeekRange(), []);
 
   const TABS: { id: TabId; label: string; color?: string }[] = [
     { id: "ALL", label: "ALL" },
@@ -699,27 +769,42 @@ export default function LeaderboardScreen() {
               { color: colors.textPrimary, fontFamily: "Lexend_700Bold" },
             ]}
           >
-            WEEKLY RANKS
+            {headerTitle}
           </Text>
-          <View
+
+          <TouchableOpacity
             style={[
-              styles.weekPill,
+              styles.weekSelector,
               {
                 backgroundColor: isDark ? colors.bgElevated : colors.bgInput,
                 borderColor: colors.border,
               },
             ]}
+            onPress={() => setWeekPickerOpen(true)}
+            activeOpacity={0.7}
           >
-            <Flame size={11} color={colors.statusPending} />
+            <Calendar size={13} color={colors.accent} />
             <Text
               style={[
-                styles.weekText,
+                styles.weekSelectorText,
                 { color: colors.textSecondary, fontFamily: "Lexend_500Medium" },
               ]}
             >
-              {weekRange}
+              {selectedWeekOption.label}
             </Text>
-          </View>
+            <ChevronDown size={14} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          {!isAllTime && (
+            <Text
+              style={[
+                styles.weekRangeHint,
+                { color: colors.textMuted, fontFamily: "Lexend_400Regular" },
+              ]}
+            >
+              Mon – Sun · {periodLabel}
+            </Text>
+          )}
         </Animated.View>
 
         <View style={[styles.tabBar, { backgroundColor: isDark ? colors.bgElevated : colors.bgInput, borderColor: colors.border }]}>
@@ -771,6 +856,7 @@ export default function LeaderboardScreen() {
               mxEntries={mxEntries}
               colors={colors}
               isDark={isDark}
+              periodLabel={periodLabel}
             />
           ) : (
             <>
@@ -792,10 +878,10 @@ export default function LeaderboardScreen() {
                     ]}
                   >
                     {activeTab === "SF"
-                      ? "No SF collectors found this week"
+                      ? "No SF rig data found for this period"
                       : activeTab === "MX"
-                      ? "No MX collectors found this week"
-                      : "Leaderboard builds as collectors log work this week"}
+                      ? "No MX rig data found for this period"
+                      : "No rig collection data found for this period"}
                   </Text>
                 </View>
               )}
@@ -809,6 +895,7 @@ export default function LeaderboardScreen() {
                     colors={colors}
                     isDark={isDark}
                     isYou={top3[1] ? isYou(top3[1].collectorName) : false}
+                    isAllTime={isAllTime}
                   />
                   <PodiumBlock
                     entry={top3[0]}
@@ -817,6 +904,7 @@ export default function LeaderboardScreen() {
                     colors={colors}
                     isDark={isDark}
                     isYou={isYou(top3[0].collectorName)}
+                    isAllTime={isAllTime}
                   />
                   <PodiumBlock
                     entry={top3[2] ?? null}
@@ -825,6 +913,7 @@ export default function LeaderboardScreen() {
                     colors={colors}
                     isDark={isDark}
                     isYou={top3[2] ? isYou(top3[2].collectorName) : false}
+                    isAllTime={isAllTime}
                   />
                 </View>
               )}
@@ -833,13 +922,14 @@ export default function LeaderboardScreen() {
                 <View style={styles.listSection}>
                   {rest.map((entry, idx) => (
                     <RankRow
-                      key={`rank_${activeTab}_${entry.rank}`}
+                      key={`rank_${activeTab}_${entry.rank}_${leaderboardWeekStart}`}
                       entry={entry}
                       maxHours={maxHours}
                       isYou={isYou(entry.collectorName)}
                       index={idx}
                       colors={colors}
                       isDark={isDark}
+                      isAllTime={isAllTime}
                     />
                   ))}
                 </View>
@@ -850,6 +940,95 @@ export default function LeaderboardScreen() {
 
         <View style={styles.spacer} />
       </ScrollView>
+
+      <Modal
+        visible={weekPickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWeekPickerOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setWeekPickerOpen(false)}
+        >
+          <View
+            style={[
+              styles.weekPickerCard,
+              {
+                backgroundColor: isDark ? colors.bgElevated : "#fff",
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.weekPickerHeader}>
+              <Text
+                style={[
+                  styles.weekPickerTitle,
+                  { color: colors.textPrimary, fontFamily: "Lexend_700Bold" },
+                ]}
+              >
+                Select Period
+              </Text>
+              <TouchableOpacity
+                onPress={() => setWeekPickerOpen(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.weekPickerScroll} showsVerticalScrollIndicator={false}>
+              {weekOptions.map((option) => {
+                const isSelected = option.value === leaderboardWeekStart;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.weekOption,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.accent + "15"
+                          : "transparent",
+                        borderColor: isSelected ? colors.accent + "40" : colors.border,
+                      },
+                    ]}
+                    onPress={() => handleWeekSelect(option.value)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.weekOptionContent}>
+                      <Text
+                        style={[
+                          styles.weekOptionLabel,
+                          {
+                            color: isSelected ? colors.accent : colors.textPrimary,
+                            fontFamily: isSelected ? "Lexend_700Bold" : "Lexend_500Medium",
+                          },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {option.sublabel && option.label !== option.sublabel && (
+                        <Text
+                          style={[
+                            styles.weekOptionSub,
+                            { color: colors.textMuted, fontFamily: "Lexend_400Regular" },
+                          ]}
+                        >
+                          {option.sublabel}
+                        </Text>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <View style={[styles.weekOptionDot, { backgroundColor: colors.accent }]} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1184,17 +1363,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     letterSpacing: 3,
   },
-  weekPill: {
+  weekSelector: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
   },
-  weekText: {
-    fontSize: 12,
+  weekSelectorText: {
+    fontSize: 13,
+  },
+  weekRangeHint: {
+    fontSize: 11,
+    marginTop: -2,
   },
   tabBar: {
     flexDirection: "row" as const,
@@ -1245,4 +1428,58 @@ const styles = StyleSheet.create({
     maxWidth: 240,
   },
   spacer: { height: 20 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 30,
+  },
+  weekPickerCard: {
+    width: "100%" as unknown as number,
+    maxWidth: 340,
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingVertical: 16,
+    maxHeight: 440,
+  },
+  weekPickerHeader: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  weekPickerTitle: {
+    fontSize: 16,
+  },
+  weekPickerScroll: {
+    paddingHorizontal: 12,
+  },
+  weekOption: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  weekOptionContent: {
+    flex: 1,
+    gap: 2,
+  },
+  weekOptionLabel: {
+    fontSize: 14,
+  },
+  weekOptionSub: {
+    fontSize: 11,
+  },
+  weekOptionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
 });

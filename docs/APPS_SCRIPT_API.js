@@ -101,10 +101,12 @@ function doGet(e) {
       return jsonResponse_({ success: true, data: API_getAdminDashboardData_(ss) });
     }
     if (action === "getCATaggedWeekly") {
-      return jsonResponse_({ success: true, data: API_getCATaggedWeekly_(ss) });
+      var caWeekStart = (e.parameter.weekStart || "").trim();
+      return jsonResponse_({ success: true, data: API_getCATaggedWeekly_(ss, caWeekStart) });
     }
     if (action === "getWeeklyLog") {
-      return jsonResponse_({ success: true, data: API_getWeeklyLog_(ss) });
+      var wlWeekStart = (e.parameter.weekStart || "").trim();
+      return jsonResponse_({ success: true, data: API_getWeeklyLog_(ss, wlWeekStart) });
     }
 
     return jsonResponse_({ success: false, error: "Unknown action: " + action });
@@ -832,7 +834,7 @@ function API_getFullLog_(ss, collector) {
  * SF rule: EGO-PROD-(2|3|4|5|6|9) → EGO-SF, everything else → EGO-MX
  * ========================================================================= */
 
-function API_getCATaggedWeekly_(ss) {
+function API_getCATaggedWeekly_(ss, weekStartParam) {
   var sh = ss.getSheetByName("CA_TAGGED");
   if (!sh) {
     var sh2 = ss.getSheetByName("CA_PLUS");
@@ -843,11 +845,18 @@ function API_getCATaggedWeekly_(ss) {
   var last = sh.getLastRow();
   if (last < 2) return [];
 
-  var today = API_today_();
-  var adminWeekStart = API_getAdminWeekStart_(ss);
-  var weekStart = adminWeekStart || API_weekStart_(today);
-  var weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
-  Logger.log("CA_Tagged weekStartStr: " + weekStartStr + " (admin: " + !!adminWeekStart + ")");
+  var weekStartStr;
+  if (weekStartParam === "all") {
+    weekStartStr = "2000-01-01";
+  } else if (weekStartParam && weekStartParam.length === 10) {
+    weekStartStr = weekStartParam;
+  } else {
+    var today = API_today_();
+    var adminWeekStart = API_getAdminWeekStart_(ss);
+    var weekStart = adminWeekStart || API_weekStart_(today);
+    weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
+  }
+  Logger.log("CA_Tagged weekStartStr: " + weekStartStr + " (param: " + weekStartParam + ")");
 
   var cols = Math.min(sh.getLastColumn(), 8);
   var data = sh.getRange(2, 1, last - 1, cols).getValues();
@@ -897,17 +906,24 @@ function API_getCATaggedWeekly_(ss) {
  * GET WEEKLY LOG — full task assignment log rows for this week (no 50-row cap)
  * ========================================================================= */
 
-function API_getWeeklyLog_(ss) {
+function API_getWeeklyLog_(ss, weekStartParam) {
   var log = ss.getSheetByName(API_CFG.sheets.log);
   if (!log) return [];
   var last = log.getLastRow();
   if (last < 2) return [];
 
-  var today = API_today_();
-  var adminWeekStart = API_getAdminWeekStart_(ss);
-  var weekStart = adminWeekStart || API_weekStart_(today);
-  var weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
-  Logger.log("WeeklyLog weekStartStr: " + weekStartStr + " (admin: " + !!adminWeekStart + ")");
+  var weekStartStr;
+  if (weekStartParam === "all") {
+    weekStartStr = "2000-01-01";
+  } else if (weekStartParam && weekStartParam.length === 10) {
+    weekStartStr = weekStartParam;
+  } else {
+    var today = API_today_();
+    var adminWeekStart = API_getAdminWeekStart_(ss);
+    var weekStart = adminWeekStart || API_weekStart_(today);
+    weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
+  }
+  Logger.log("WeeklyLog weekStartStr: " + weekStartStr + " (param: " + weekStartParam + ")");
 
   var map = API_getHeaderMap_(log);
   var n = Math.min(Math.max(last - 1, 0), API_CFG.perf.maxLogRows);

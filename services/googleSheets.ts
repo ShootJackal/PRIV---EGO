@@ -168,20 +168,24 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
   return apiGet<AdminDashboardData>("getAdminDashboardData");
 }
 
-export async function fetchCATaggedWeekly(): Promise<CATaggedEntry[]> {
-  console.log("[API] fetchCATaggedWeekly");
+export async function fetchCATaggedWeekly(weekStart?: string): Promise<CATaggedEntry[]> {
+  console.log("[API] fetchCATaggedWeekly, weekStart:", weekStart);
   try {
-    return await apiGet<CATaggedEntry[]>("getCATaggedWeekly");
+    const params: Record<string, string> = {};
+    if (weekStart) params.weekStart = weekStart;
+    return await apiGet<CATaggedEntry[]>("getCATaggedWeekly", params);
   } catch (e) {
     console.log("[API] fetchCATaggedWeekly failed (sheet may not exist):", e);
     return [];
   }
 }
 
-export async function fetchWeeklyLog(): Promise<WeeklyLogEntry[]> {
-  console.log("[API] fetchWeeklyLog");
+export async function fetchWeeklyLog(weekStart?: string): Promise<WeeklyLogEntry[]> {
+  console.log("[API] fetchWeeklyLog, weekStart:", weekStart);
   try {
-    return await apiGet<WeeklyLogEntry[]>("getWeeklyLog");
+    const params: Record<string, string> = {};
+    if (weekStart) params.weekStart = weekStart;
+    return await apiGet<WeeklyLogEntry[]>("getWeeklyLog", params);
   } catch (e) {
     console.log("[API] fetchWeeklyLog failed:", e);
     return [];

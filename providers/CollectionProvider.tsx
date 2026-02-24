@@ -157,6 +157,9 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
   const [notes, setNotes] = useState<string>("");
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [announcements, setAnnouncementsState] = useState<string[]>([]);
+  const [leaderboardWeekStart, setLeaderboardWeekStartState] = useState<string>(() => {
+    return getWeekStart().toISOString().slice(0, 10);
+  });
 
   const configured = isApiConfigured();
 
@@ -221,138 +224,63 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
   });
 
   const leaderboardQuery = useQuery({
-    queryKey: ["weeklyLeaderboard"],
+    queryKey: ["weeklyLeaderboard", leaderboardWeekStart],
     queryFn: async () => {
-      console.log("[Provider] Fetching leaderboard — weeklyLog + CATagged + collectors");
+      const isAllTime = leaderboardWeekStart === "all";
+      console.log("[Provider] Fetching leaderboard — CA_Tagged + collectors, weekStart:", leaderboardWeekStart);
 
-      const [weeklyLogEntries, caTaggedEntries, rawCollectors] = await Promise.all([
-        fetchWeeklyLog(),
-        fetchCATaggedWeekly(),
+      const [caTaggedEntries, rawCollectors] = await Promise.all([
+        fetchCATaggedWeekly(leaderboardWeekStart),
         fetchCollectors(),
       ]);
 
-      console.log("[Provider] weeklyLog:", weeklyLogEntries.length, "caTagged:", caTaggedEntries.length, "collectors:", rawCollectors.length);
-
-      const mondayStart = getWeekStart();
-      const mondayStr = mondayStart.toISOString().slice(0, 10);
-      console.log("[Provider] Client Monday week start:", mondayStr);
+      console.log("[Provider] caTagged:", caTaggedEntries.length, "collectors:", rawCollectors.length);
 
       const mergedCollectors = mergeCollectors(rawCollectors);
 
-      // Build rig-based location fallback from Collectors sheet
-      const rigLocationFallback = new Map<string, "SF" | "MX" | "OTHER">();
-      for (const c of mergedCollectors) {
-        rigLocationFallback.set(c.name.toLowerCase(), getLocationByRigs(c.rigs));
-      }
-
-      const filteredCaTagged = caTaggedEntries.filter((row) => {
-        if (!row.date) return true;
-        return row.date >= mondayStr;
-      });
-      const filteredWeeklyLog = weeklyLogEntries.filter((entry) => {
-        if (!entry.assignedDate) return true;
-        return entry.assignedDate >= mondayStr;
-      });
-      console.log("[Provider] After Monday filter — weeklyLog:", filteredWeeklyLog.length, "caTagged:", filteredCaTagged.length);
-
-      const caTaggedSites = new Map<string, Set<"SF" | "MX">>();
-      const caTaggedHours = new Map<string, number>();
-      const caTaggedTasks = new Map<string, number>();
-      for (const row of filteredCaTagged) {
-        const name = normalizeCollectorName(row.collector);
-        const key = name.toLowerCase();
-        if (!caTaggedSites.has(key)) caTaggedSites.set(key, new Set());
-        caTaggedSites.get(key)!.add(row.site);
-        caTaggedHours.set(key, (caTaggedHours.get(key) ?? 0) + (row.hours ?? 0));
-        caTaggedTasks.set(key, (caTaggedTasks.get(key) ?? 0) + 1);
-      }
-      console.log("[Provider] CA_Tagged site coverage:", caTaggedSites.size, "collectors, hours entries:", caTaggedHours.size);
-
-      // Build leaderboard from weeklyLog (our task assignments)
       const collectorMap = new Map<string, {
         hours: number;
-        completed: number;
-        assigned: number;
+        taskCount: number;
         sitesWorked: Set<"SF" | "MX">;
-        fallbackLocation: "SF" | "MX" | "OTHER";
+        rigs: Set<string>;
       }>();
 
-      for (const entry of filteredWeeklyLog) {
-        const name = normalizeCollectorName(entry.collector);
-        const key = name.toLowerCase();
+      for (const row of caTaggedEntries) {
+        const name = normalizeCollectorName(row.collector);
+        if (!name) continue;
 
         if (!collectorMap.has(name)) {
-          const fallbackLoc =
-            rigLocationFallback.get(key) ??
-            (extractLocationFallback(entry.collector) as "SF" | "MX" | "OTHER");
           collectorMap.set(name, {
             hours: 0,
-            completed: 0,
-            assigned: 0,
-            sitesWorked: new Set<"SF" | "MX">(),
-            fallbackLocation: fallbackLoc,
+            taskCount: 0,
+            sitesWorked: new Set(),
+            rigs: new Set(),
           });
         }
 
-        const stats = collectorMap.get(name)!;
-        stats.hours += entry.loggedHours;
-        stats.assigned += 1;
-        if (entry.status === "Completed") stats.completed += 1;
-
-        // Merge CA_Tagged site info into this collector's worked sites
-        const caKey = key;
-        if (caTaggedSites.has(caKey)) {
-          for (const site of caTaggedSites.get(caKey)!) {
-            stats.sitesWorked.add(site);
-          }
-        }
+        const data = collectorMap.get(name)!;
+        data.hours += row.hours ?? 0;
+        data.taskCount += 1;
+        data.sitesWorked.add(row.site);
+        if (row.rigId) data.rigs.add(row.rigId);
       }
 
-      for (const [key, sites] of caTaggedSites.entries()) {
-        const matched = Array.from(collectorMap.keys()).find(n => n.toLowerCase() === key);
-        if (!matched) {
-          const displayName = normalizeCollectorName(
-            rawCollectors.find(c => normalizeCollectorName(c.name).toLowerCase() === key)?.name ?? key
-          );
-          const fallbackLoc = rigLocationFallback.get(key) ?? "OTHER";
-          const ctHours = caTaggedHours.get(key) ?? 0;
-          const ctTasks = caTaggedTasks.get(key) ?? 0;
-          collectorMap.set(displayName, {
-            hours: ctHours,
-            completed: ctTasks,
-            assigned: ctTasks,
-            sitesWorked: sites,
-            fallbackLocation: fallbackLoc,
-          });
-          console.log(`[Leaderboard] CA_Tagged only collector: ${displayName}, hours: ${ctHours}, tasks: ${ctTasks}`);
-        } else {
-          const stats = collectorMap.get(matched)!;
-          for (const site of sites) {
-            stats.sitesWorked.add(site);
-          }
-          console.log(`[Leaderboard] Matched collector: ${matched}, weeklyLog hours: ${stats.hours}, CA_Tagged hours: ${caTaggedHours.get(key) ?? 0}`);
-        }
-      }
-
-      const MAX_WEEKLY_HOURS = 100;
+      const MAX_WEEKLY_HOURS = isAllTime ? 999999 : 80;
 
       const entries: LeaderboardEntry[] = Array.from(collectorMap.entries())
-        .filter(([, stats]) => stats.hours > 0 || stats.assigned > 0 || stats.sitesWorked.size > 0)
+        .filter(([, stats]) => stats.hours > 0)
         .map(([name, stats]) => {
-          const { location, locations } =
-            stats.sitesWorked.size > 0
-              ? resolveLocations(stats.sitesWorked)
-              : { location: stats.fallbackLocation as "SF" | "MX" | "BOTH" | "OTHER", locations: stats.fallbackLocation !== "OTHER" ? [stats.fallbackLocation as "SF" | "MX"] : [] };
+          const { location, locations } = resolveLocations(stats.sitesWorked);
           const rawHours = Math.round(stats.hours * 10) / 10;
           const cappedHours = Math.min(rawHours, MAX_WEEKLY_HOURS);
-          if (rawHours > MAX_WEEKLY_HOURS) {
+          if (!isAllTime && rawHours > MAX_WEEKLY_HOURS) {
             console.log(`[Leaderboard] Capping ${name} hours from ${rawHours} to ${MAX_WEEKLY_HOURS}`);
           }
           return {
             collectorName: name,
             weeklyHours: cappedHours,
-            weeklyCompleted: stats.completed,
-            weeklyAssigned: stats.assigned,
+            weeklyCompleted: stats.taskCount,
+            weeklyAssigned: stats.taskCount,
             location,
             locations,
             rank: 0,
@@ -361,7 +289,7 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
         .sort((a, b) => b.weeklyHours - a.weeklyHours)
         .map((e, idx) => ({ ...e, rank: idx + 1 }));
 
-      console.log("[Provider] Leaderboard entries:", entries.length, "BOTH:", entries.filter(e => e.location === "BOTH").length);
+      console.log("[Provider] Leaderboard entries:", entries.length, "from CA_Tagged rig data");
       return entries;
     },
     enabled: configured,
@@ -423,6 +351,11 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     () => leaderboardQuery.data ?? [],
     [leaderboardQuery.data]
   );
+
+  const setLeaderboardWeekStart = useCallback((weekStart: string) => {
+    console.log("[Provider] setLeaderboardWeekStart:", weekStart);
+    setLeaderboardWeekStartState(weekStart);
+  }, []);
 
   const selectCollector = useCallback(async (name: string) => {
     console.log("[Provider] selectCollector:", name);
@@ -609,6 +542,7 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     activity,
     announcements,
     leaderboard,
+    leaderboardWeekStart,
     isLoadingLeaderboard: leaderboardQuery.isLoading,
     selectedCollectorName,
     selectedCollector,
@@ -637,5 +571,6 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
     cancelTask,
     addNote,
     refreshData,
+    setLeaderboardWeekStart,
   };
 });
