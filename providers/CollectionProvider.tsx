@@ -237,16 +237,18 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
         rigLocationFallback.set(c.name.toLowerCase(), getLocationByRigs(c.rigs));
       }
 
-      // Build per-collector site sets from CA_Tagged (ground truth for this week)
-      // Key: normalized collector name → Set of sites they actually worked
       const caTaggedSites = new Map<string, Set<"SF" | "MX">>();
+      const caTaggedHours = new Map<string, number>();
+      const caTaggedTasks = new Map<string, number>();
       for (const row of caTaggedEntries) {
         const name = normalizeCollectorName(row.collector);
         const key = name.toLowerCase();
         if (!caTaggedSites.has(key)) caTaggedSites.set(key, new Set());
         caTaggedSites.get(key)!.add(row.site);
+        caTaggedHours.set(key, (caTaggedHours.get(key) ?? 0) + (row.hours ?? 0));
+        caTaggedTasks.set(key, (caTaggedTasks.get(key) ?? 0) + 1);
       }
-      console.log("[Provider] CA_Tagged site coverage:", caTaggedSites.size, "collectors");
+      console.log("[Provider] CA_Tagged site coverage:", caTaggedSites.size, "collectors, hours entries:", caTaggedHours.size);
 
       // Build leaderboard from weeklyLog (our task assignments)
       const collectorMap = new Map<string, {
@@ -288,7 +290,6 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
         }
       }
 
-      // Also include collectors seen ONLY in CA_Tagged (they may not have logged via app yet)
       for (const [key, sites] of caTaggedSites.entries()) {
         const matched = Array.from(collectorMap.keys()).find(n => n.toLowerCase() === key);
         if (!matched) {
@@ -296,18 +297,31 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
             rawCollectors.find(c => normalizeCollectorName(c.name).toLowerCase() === key)?.name ?? key
           );
           const fallbackLoc = rigLocationFallback.get(key) ?? "OTHER";
+          const ctHours = caTaggedHours.get(key) ?? 0;
+          const ctTasks = caTaggedTasks.get(key) ?? 0;
           collectorMap.set(displayName, {
-            hours: 0,
-            completed: 0,
-            assigned: 0,
+            hours: ctHours,
+            completed: ctTasks,
+            assigned: ctTasks,
             sitesWorked: sites,
             fallbackLocation: fallbackLoc,
           });
+        } else {
+          const stats = collectorMap.get(matched)!;
+          if (stats.hours === 0) {
+            const ctHours = caTaggedHours.get(key) ?? 0;
+            const ctTasks = caTaggedTasks.get(key) ?? 0;
+            if (ctHours > 0) {
+              stats.hours = ctHours;
+              if (stats.assigned === 0) stats.assigned = ctTasks;
+              if (stats.completed === 0) stats.completed = ctTasks;
+            }
+          }
         }
       }
 
       const entries: LeaderboardEntry[] = Array.from(collectorMap.entries())
-        .filter(([, stats]) => stats.hours > 0 || stats.assigned > 0)
+        .filter(([, stats]) => stats.hours > 0 || stats.assigned > 0 || stats.sitesWorked.size > 0)
         .map(([name, stats]) => {
           const { location, locations } =
             stats.sitesWorked.size > 0

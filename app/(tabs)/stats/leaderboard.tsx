@@ -623,11 +623,11 @@ export default function LeaderboardScreen() {
   );
 
   const sfEntries = useMemo(
-    () => leaderboard.filter((e) => e.location === "SF"),
+    () => leaderboard.filter((e) => e.location === "SF" || e.location === "BOTH"),
     [leaderboard]
   );
   const mxEntries = useMemo(
-    () => leaderboard.filter((e) => e.location === "MX"),
+    () => leaderboard.filter((e) => e.location === "MX" || e.location === "BOTH"),
     [leaderboard]
   );
 

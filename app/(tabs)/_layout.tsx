@@ -80,19 +80,19 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
   const BOTTOM_PAD = insets.bottom > 0 ? insets.bottom : 12;
 
   const gradientColors = isDark
-    ? ["transparent", "rgba(7,5,15,0.94)", "rgba(7,5,15,1.0)"] as const
-    : ["transparent", "rgba(250,246,237,0.94)", "rgba(250,246,237,1.0)"] as const;
+    ? ["transparent", "rgba(14,14,16,0.85)", "rgba(14,14,16,0.96)", "rgba(14,14,16,1)"] as const
+    : ["transparent", "rgba(250,247,240,0.8)", "rgba(250,247,240,0.95)", "rgba(250,247,240,1)"] as const;
 
-  const islandBg = isDark ? "#13111E" : "#FFFFF8";
-  const islandBorder = isDark ? "#2A2A3D" : "#D8D1C2";
-  const shadowColor = isDark ? "#9B7BF7" : "#7C3AED";
+  const islandBg = isDark ? "#1A1A1F" : "#FFFFFF";
+  const islandBorder = isDark ? "#2E2E38" : "#DDD8C6";
+  const shadowColor = isDark ? "#7C3AED" : "#7C3AED";
 
   return (
     <View style={[barStyles.outerWrap, { paddingBottom: BOTTOM_PAD }]}>
       <LinearGradient
         colors={gradientColors}
         style={barStyles.gradient}
-        locations={[0, 0.35, 1]}
+        locations={[0, 0.3, 0.65, 1]}
         pointerEvents="none"
       />
       <View
@@ -104,13 +104,21 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
             shadowColor,
           },
           isDark
-            ? { shadowOpacity: 0.25, shadowRadius: 28, elevation: 32 }
-            : { shadowOpacity: 0.14, shadowRadius: 22, elevation: 24 },
+            ? { shadowOpacity: 0.2, shadowRadius: 30, elevation: 32 }
+            : { shadowOpacity: 0.12, shadowRadius: 24, elevation: 24 },
         ]}
       >
         {isDark && (
           <LinearGradient
-            colors={["rgba(155,123,247,0.06)", "transparent"] as const}
+            colors={["rgba(167,139,250,0.08)", "transparent"] as const}
+            style={barStyles.islandTopSheen}
+            locations={[0, 1]}
+            pointerEvents="none"
+          />
+        )}
+        {!isDark && (
+          <LinearGradient
+            colors={["rgba(124,58,237,0.04)", "transparent"] as const}
             style={barStyles.islandTopSheen}
             locations={[0, 1]}
             pointerEvents="none"
@@ -153,9 +161,7 @@ function CustomTabBar({ state, navigation }: { state: any; navigation: any }) {
                   isFocused && {
                     backgroundColor: isLive
                       ? colors.complete + "18"
-                      : isDark
-                        ? "rgba(155,123,247,0.14)"
-                        : "rgba(124,58,237,0.1)",
+                      : colors.accent + "14",
                     borderRadius: 12,
                   },
                 ]}
@@ -197,7 +203,10 @@ function TaskFlowHeader() {
     <View style={[hStyles.wrap, { backgroundColor: colors.bg }]}>
       <Image
         source={require("../../assets/images/taskflow-logo.png")}
-        style={[hStyles.logo, isDark && { tintColor: undefined }]}
+        style={[
+          hStyles.logo,
+          { tintColor: isDark ? colors.accentLight : colors.accent, opacity: 0.9 },
+        ]}
         resizeMode="contain"
       />
     </View>
@@ -294,17 +303,17 @@ const barStyles = StyleSheet.create({
   },
   gradient: {
     position: "absolute",
-    bottom: -10,
+    bottom: -20,
     left: 0,
     right: 0,
-    height: 120,
+    height: 150,
   },
   island: {
     flexDirection: "row",
     borderRadius: 30,
     borderWidth: 1,
     paddingVertical: 6,
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     position: "relative",
     overflow: "hidden",
     width: "100%",
@@ -314,7 +323,7 @@ const barStyles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 18,
+    height: 20,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },
@@ -358,7 +367,7 @@ const hStyles = StyleSheet.create({
     paddingVertical: 2,
   },
   logo: {
-    width: 140,
-    height: 36,
+    width: 130,
+    height: 34,
   },
 });
