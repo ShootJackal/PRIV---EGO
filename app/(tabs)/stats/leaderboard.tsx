@@ -23,8 +23,9 @@ type TabId = "ALL" | "SF" | "MX" | "VS";
 function getWeekRange(): string {
   const now = new Date();
   const dayOfWeek = now.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const start = new Date(now);
-  start.setDate(now.getDate() - dayOfWeek);
+  start.setDate(now.getDate() - daysFromMonday);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   const fmt = (d: Date) =>

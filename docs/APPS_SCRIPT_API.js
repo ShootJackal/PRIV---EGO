@@ -730,6 +730,21 @@ function API_weekStart_(d0) {
   return d;
 }
 
+function API_getAdminWeekStart_(ss) {
+  var sheet = ss.getSheetByName("ADMIN_DASHBOARD");
+  if (!sheet) return null;
+  try {
+    var hm = API_getHeaderMap_(sheet);
+    if (hm["Week Start"]) {
+      var val = sheet.getRange(2, hm["Week Start"]).getValue();
+      if (val instanceof Date) return val;
+    }
+    var val2 = sheet.getRange("B2").getValue();
+    if (val2 instanceof Date) return val2;
+  } catch (e) {}
+  return null;
+}
+
 function API_toNum_(v, fallback) {
   if (typeof v === "number") return v;
   var n = Number(String(v || "").replace(/[^0-9.\-]/g, ""));
@@ -829,8 +844,10 @@ function API_getCATaggedWeekly_(ss) {
   if (last < 2) return [];
 
   var today = API_today_();
-  var weekStart = API_weekStart_(today);
+  var adminWeekStart = API_getAdminWeekStart_(ss);
+  var weekStart = adminWeekStart || API_weekStart_(today);
   var weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
+  Logger.log("CA_Tagged weekStartStr: " + weekStartStr + " (admin: " + !!adminWeekStart + ")");
 
   var cols = Math.min(sh.getLastColumn(), 8);
   var data = sh.getRange(2, 1, last - 1, cols).getValues();
@@ -887,8 +904,10 @@ function API_getWeeklyLog_(ss) {
   if (last < 2) return [];
 
   var today = API_today_();
-  var weekStart = API_weekStart_(today);
+  var adminWeekStart = API_getAdminWeekStart_(ss);
+  var weekStart = adminWeekStart || API_weekStart_(today);
   var weekStartStr = Utilities.formatDate(weekStart, API_CFG.tz, "yyyy-MM-dd");
+  Logger.log("WeeklyLog weekStartStr: " + weekStartStr + " (admin: " + !!adminWeekStart + ")");
 
   var map = API_getHeaderMap_(log);
   var n = Math.min(Math.max(last - 1, 0), API_CFG.perf.maxLogRows);

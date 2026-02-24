@@ -94,7 +94,9 @@ function mergeCollectors(raw: Collector[]): Collector[] {
 function getWeekStart(): Date {
   const now = new Date();
   const d = new Date(now);
-  d.setDate(now.getDate() - now.getDay());
+  const dayOfWeek = d.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  d.setDate(d.getDate() - daysFromMonday);
   d.setHours(0, 0, 0, 0);
   return d;
 }
@@ -308,17 +310,13 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
             sitesWorked: sites,
             fallbackLocation: fallbackLoc,
           });
+          console.log(`[Leaderboard] CA_Tagged only collector: ${displayName}, hours: ${ctHours}, tasks: ${ctTasks}`);
         } else {
           const stats = collectorMap.get(matched)!;
-          if (stats.hours === 0) {
-            const ctHours = caTaggedHours.get(key) ?? 0;
-            const ctTasks = caTaggedTasks.get(key) ?? 0;
-            if (ctHours > 0) {
-              stats.hours = ctHours;
-              if (stats.assigned === 0) stats.assigned = ctTasks;
-              if (stats.completed === 0) stats.completed = ctTasks;
-            }
+          for (const site of sites) {
+            stats.sitesWorked.add(site);
           }
+          console.log(`[Leaderboard] Matched collector: ${matched}, weeklyLog hours: ${stats.hours}, CA_Tagged hours: ${caTaggedHours.get(key) ?? 0}`);
         }
       }
 
