@@ -11,7 +11,7 @@ import {
   Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RefreshCw, Sun, Moon, BookOpen, Trophy, X, User, BarChart3 } from "lucide-react-native";
+import { RefreshCw, Sun, Moon, BookOpen, Trophy, X, User } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
@@ -39,7 +39,6 @@ interface TerminalLine {
 interface TickerSegment {
   label: string;
   color: string;
-  bgColor: string;
   items: string[];
   speed: number;
 }
@@ -48,31 +47,20 @@ function NewsTicker({ segments }: { segments: TickerSegment[] }) {
   const { colors, isDark } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
-  const pillSlide = useRef(new Animated.Value(0)).current;
   const pillOpacity = useRef(new Animated.Value(1)).current;
-  const contentOpacity = useRef(new Animated.Value(1)).current;
 
   const seg = segments[activeIndex] ?? segments[0];
 
   useEffect(() => {
     if (segments.length <= 1) return;
     const interval = setInterval(() => {
-      Animated.parallel([
-        Animated.timing(pillOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
-        Animated.timing(contentOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(pillSlide, { toValue: -40, duration: 250, useNativeDriver: true }),
-      ]).start(() => {
-        setActiveIndex((prev) => (prev + 1) % segments.length);
-        pillSlide.setValue(30);
-        Animated.parallel([
-          Animated.timing(pillOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.timing(contentOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.spring(pillSlide, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
-        ]).start();
+      Animated.timing(pillOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+        setActiveIndex(prev => (prev + 1) % segments.length);
+        Animated.timing(pillOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
       });
     }, 7000);
     return () => clearInterval(interval);
-  }, [segments.length, pillOpacity, contentOpacity, pillSlide]);
+  }, [segments.length, pillOpacity]);
 
   const tickerText = seg ? seg.items.join("     |     ") : "";
 
@@ -86,7 +74,7 @@ function NewsTicker({ segments }: { segments: TickerSegment[] }) {
     );
     anim.start();
     return () => anim.stop();
-  }, [tickerText, scrollX, seg?.speed, activeIndex]);
+  }, [tickerText, scrollX, seg, activeIndex]);
 
   if (!seg) return null;
 
@@ -95,10 +83,7 @@ function NewsTicker({ segments }: { segments: TickerSegment[] }) {
       backgroundColor: isDark ? '#161618' : '#F8F6F0',
       borderBottomColor: isDark ? '#222228' : '#E8E4DA',
     }]}>
-      <Animated.View style={[tickerStyles.pillWrap, {
-        opacity: pillOpacity,
-        transform: [{ translateX: pillSlide }],
-      }]}>
+      <Animated.View style={[tickerStyles.pillWrap, { opacity: pillOpacity }]}>
         <View style={[tickerStyles.pill, { backgroundColor: seg.color + '18' }]}>
           <View style={[tickerStyles.pillDot, { backgroundColor: seg.color }]} />
           <Text style={[tickerStyles.pillText, { color: seg.color, fontFamily: FONT_MONO }]}>
@@ -107,7 +92,7 @@ function NewsTicker({ segments }: { segments: TickerSegment[] }) {
         </View>
       </Animated.View>
       <View style={[tickerStyles.separator, { backgroundColor: isDark ? '#2E2E34' : '#E0DCD0' }]} />
-      <Animated.View style={[tickerStyles.scrollWrap, { opacity: contentOpacity }]}>
+      <View style={tickerStyles.scrollWrap}>
         <Animated.Text
           style={[tickerStyles.scrollText, {
             color: seg.color,
@@ -118,7 +103,7 @@ function NewsTicker({ segments }: { segments: TickerSegment[] }) {
         >
           {tickerText}
         </Animated.Text>
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -151,6 +136,24 @@ function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
   const termBg = isDark ? '#0C0C0E' : '#FDFCF8';
   const termBorder = isDark ? '#1E1E24' : '#E5E1D8';
 
+  const getLineColor = useCallback((line: TerminalLine) => {
+    if (line.type === "header") return colors.accent;
+    if (line.type === "cmd") return colors.terminalGreen;
+    if (line.type === "prompt") return colors.terminalDim;
+    if (line.type === "divider") return colors.terminalDim;
+    if (line.type === "label") return colors.mxOrange;
+    if (line.type === "empty") return "transparent";
+    return line.color ?? colors.textPrimary;
+  }, [colors]);
+
+  const getPrefix = useCallback((type: string) => {
+    if (type === "prompt") return "$ ";
+    if (type === "cmd") return "> ";
+    if (type === "header") return "# ";
+    if (type === "label") return "  ~ ";
+    return "  ";
+  }, []);
+
   return (
     <View style={[cmdStyles.window, { backgroundColor: termBg, borderColor: termBorder }]}>
       <View style={[cmdStyles.titleBar, { borderBottomColor: termBorder }]}>
@@ -177,16 +180,8 @@ function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
         showsVerticalScrollIndicator={false}
       >
         {lines.map((line) => {
-          const lineColor =
-            line.type === "header" ? colors.accent :
-            line.type === "cmd" ? colors.terminalGreen :
-            line.type === "prompt" ? colors.terminalDim :
-            line.type === "divider" ? colors.terminalDim :
-            line.type === "label" ? colors.mxOrange :
-            line.type === "empty" ? "transparent" :
-            line.color ?? colors.textPrimary;
-
           if (line.type === "empty") return <View key={line.id} style={{ height: 8 }} />;
+          const lineColor = getLineColor(line);
           if (line.type === "divider") {
             return (
               <Text key={line.id} style={[cmdStyles.line, { color: lineColor, fontFamily: FONT_MONO, opacity: 0.25 }]}>
@@ -194,14 +189,6 @@ function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
               </Text>
             );
           }
-
-          const prefix =
-            line.type === "prompt" ? "$ " :
-            line.type === "cmd" ? "> " :
-            line.type === "header" ? "# " :
-            line.type === "label" ? "  ~ " :
-            "  ";
-
           return (
             <Text
               key={line.id}
@@ -212,7 +199,7 @@ function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
                 fontSize: line.type === "header" ? 12 : 11,
               }]}
             >
-              {prefix}{line.text}
+              {getPrefix(line.type)}{line.text}
             </Text>
           );
         })}
@@ -235,9 +222,7 @@ function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
               activeOpacity={0.7}
             >
               <RefreshCw size={11} color={colors.accent} />
-              <Text style={[cmdStyles.actionText, { color: colors.accent, fontFamily: FONT_MONO }]}>
-                RESYNC
-              </Text>
+              <Text style={[cmdStyles.actionText, { color: colors.accent, fontFamily: FONT_MONO }]}>RESYNC</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[cmdStyles.actionBtn, { backgroundColor: colors.completeBg, borderColor: colors.complete + '30' }]}
@@ -245,9 +230,7 @@ function CmdTerminal({ lines, isLoading, onResync, onPersonalStats }: {
               activeOpacity={0.7}
             >
               <User size={11} color={colors.complete} />
-              <Text style={[cmdStyles.actionText, { color: colors.complete, fontFamily: FONT_MONO }]}>
-                MY STATS
-              </Text>
+              <Text style={[cmdStyles.actionText, { color: colors.complete, fontFamily: FONT_MONO }]}>MY STATS</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -270,9 +253,7 @@ function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => voi
       <View style={guideStyles.overlay}>
         <View style={[guideStyles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
           <View style={guideStyles.cardHeader}>
-            <Text style={[guideStyles.cardTitle, { color: colors.accent, fontFamily: FONT_MONO }]}>
-              QUICK START
-            </Text>
+            <Text style={[guideStyles.cardTitle, { color: colors.accent, fontFamily: FONT_MONO }]}>QUICK START</Text>
             <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
               <X size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -280,17 +261,11 @@ function GuideModal({ visible, onClose }: { visible: boolean; onClose: () => voi
           {steps.map((step, idx) => (
             <View key={step.num} style={[guideStyles.step, idx < steps.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: 1 }]}>
               <View style={[guideStyles.stepNum, { backgroundColor: colors.accentSoft }]}>
-                <Text style={[guideStyles.stepNumText, { color: colors.accent, fontFamily: FONT_MONO }]}>
-                  {step.num}
-                </Text>
+                <Text style={[guideStyles.stepNumText, { color: colors.accent, fontFamily: FONT_MONO }]}>{step.num}</Text>
               </View>
               <View style={guideStyles.stepContent}>
-                <Text style={[guideStyles.stepTitle, { color: colors.textPrimary, fontWeight: "600" as const }]}>
-                  {step.title}
-                </Text>
-                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary }]}>
-                  {step.desc}
-                </Text>
+                <Text style={[guideStyles.stepTitle, { color: colors.textPrimary, fontWeight: "600" as const }]}>{step.title}</Text>
+                <Text style={[guideStyles.stepDesc, { color: colors.textSecondary }]}>{step.desc}</Text>
               </View>
             </View>
           ))}
@@ -309,21 +284,8 @@ export default function LiveScreen() {
   const [isOnline, setIsOnline] = useState(false);
   const [isFeeding, setIsFeeding] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
-  const [showPersonalStats, setShowPersonalStats] = useState(false);
   const lineIndexRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const glowAnim = useRef(new Animated.Value(0.4)).current;
-
-  useEffect(() => {
-    const glow = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
-        Animated.timing(glowAnim, { toValue: 0.4, duration: 2500, useNativeDriver: true }),
-      ])
-    );
-    glow.start();
-    return () => glow.stop();
-  }, [glowAnim]);
 
   const statsQuery = useQuery({
     queryKey: ["liveStats", selectedCollectorName],
@@ -343,12 +305,7 @@ export default function LiveScreen() {
 
   const recollectionsQuery = useQuery({
     queryKey: ["recollections"],
-    queryFn: async () => {
-      console.log("[LIVE] Fetching recollections");
-      const data = await fetchRecollections();
-      console.log("[LIVE] Recollections:", data?.length ?? 0);
-      return data;
-    },
+    queryFn: () => fetchRecollections(),
     enabled: configured,
     staleTime: 30000,
     refetchInterval: 45000,
@@ -360,8 +317,8 @@ export default function LiveScreen() {
     if (sheetItems && sheetItems.length > 0) return sheetItems;
     const log = todayLogQuery.data ?? todayLog;
     const fallback = log
-      .filter((e) => e.status === "Partial" || e.remainingHours > 0)
-      .map((e) => `${normalizeCollectorName(e.taskName)} (${e.remainingHours}h left)`);
+      .filter(e => e.status === "Partial" || e.remainingHours > 0)
+      .map(e => `${normalizeCollectorName(e.taskName)} (${e.remainingHours}h left)`);
     return fallback.length > 0 ? fallback : [];
   }, [recollectionsQuery.data, todayLogQuery.data, todayLog]);
 
@@ -369,7 +326,7 @@ export default function LiveScreen() {
     const sf: typeof collectors = [];
     const mx: typeof collectors = [];
     for (const c of collectors) {
-      const hasSFRig = c.rigs.some((r) => r.toUpperCase().includes("SF"));
+      const hasSFRig = c.rigs.some(r => r.toUpperCase().includes("SF"));
       const isSFByName = SF_KNOWN_NAMES.has(normForMatch(c.name));
       if (hasSFRig || isSFByName) sf.push(c);
       else mx.push(c);
@@ -388,16 +345,12 @@ export default function LiveScreen() {
   const tickerSegments = useMemo((): TickerSegment[] => {
     const segs: TickerSegment[] = [];
     segs.push({
-      label: "ALERT",
-      color: isDark ? colors.alertYellow : colors.alertYellow,
-      bgColor: isDark ? colors.alertYellowBg : colors.alertYellowBg,
+      label: "ALERT", color: colors.alertYellow,
       items: ["Welcome to TaskFlow", "Check your daily assignments", "Stay on target"],
       speed: 32,
     });
     segs.push({
-      label: "RECOLLECT",
-      color: isDark ? colors.recollectRed : colors.recollectRed,
-      bgColor: isDark ? colors.recollectRedBg : colors.recollectRedBg,
+      label: "RECOLLECT", color: colors.recollectRed,
       items: recollectItems.length > 0 ? recollectItems : ["No pending recollections"],
       speed: recollectItems.length > 0 ? 22 : 32,
     });
@@ -406,7 +359,7 @@ export default function LiveScreen() {
       statsItems.push(`Completion: ${stats.completionRate.toFixed(0)}%`);
       statsItems.push(`Hours: ${stats.totalLoggedHours.toFixed(1)}h`);
       statsItems.push(`Done: ${stats.totalCompleted}`);
-      if (stats.topTasks && stats.topTasks.length > 0) {
+      if (stats.topTasks?.length) {
         stats.topTasks.slice(0, 5).forEach((t, i) => {
           statsItems.push(`#${i + 1} ${t.name} (${t.hours}h)`);
         });
@@ -414,15 +367,9 @@ export default function LiveScreen() {
     } else {
       statsItems.push("Loading stats...");
     }
-    segs.push({
-      label: "STATS",
-      color: isDark ? colors.statsGreen : colors.statsGreen,
-      bgColor: isDark ? colors.statsGreenBg : colors.statsGreenBg,
-      items: statsItems,
-      speed: 36,
-    });
+    segs.push({ label: "STATS", color: colors.statsGreen, items: statsItems, speed: 36 });
     return segs;
-  }, [isDark, colors, recollectItems, stats]);
+  }, [colors, recollectItems, stats]);
 
   const buildTerminalLines = useCallback((): TerminalLine[] => {
     const lines: TerminalLine[] = [];
@@ -467,7 +414,7 @@ export default function LiveScreen() {
     }
 
     if (sfCollectors.length > 0) {
-      lines.push({ id: `sf_n_${ts}`, text: `Team: ${sfCollectors.map((c) => c.name).join(", ")}`, type: "label" });
+      lines.push({ id: `sf_n_${ts}`, text: `Team: ${sfCollectors.map(c => c.name).join(", ")}`, type: "label" });
     }
 
     lines.push({ id: `d4_${ts}`, text: "", type: "empty" });
@@ -523,7 +470,7 @@ export default function LiveScreen() {
       }
       const next = allLines[lineIndexRef.current];
       lineIndexRef.current += 1;
-      setLiveLines((prev) => [...prev, next].slice(-50));
+      setLiveLines(prev => [...prev, next].slice(-50));
     };
 
     feed();
@@ -544,18 +491,18 @@ export default function LiveScreen() {
   const handlePersonalStats = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!stats || !selectedCollectorName) return;
-    const personalLines: TerminalLine[] = [];
     const ts = Date.now();
-    personalLines.push({ id: `ps_p_${ts}`, text: `stats --collector "${selectedCollectorName}"`, type: "prompt" });
-    personalLines.push({ id: `ps_h_${ts}`, text: `PERSONAL STATS: ${normalizeCollectorName(selectedCollectorName)}`, type: "header" });
-    personalLines.push({ id: `ps_1_${ts}`, text: `Total Assigned:     ${stats.totalAssigned}`, type: "data", color: colors.textPrimary });
-    personalLines.push({ id: `ps_2_${ts}`, text: `Total Completed:    ${stats.totalCompleted}`, type: "data", color: colors.terminalGreen });
-    personalLines.push({ id: `ps_3_${ts}`, text: `Hours Logged:       ${stats.totalLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight });
-    personalLines.push({ id: `ps_4_${ts}`, text: `Completion Rate:    ${stats.completionRate.toFixed(0)}%`, type: "data", color: colors.terminalGreen });
-    personalLines.push({ id: `ps_5_${ts}`, text: `Weekly Hours:       ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accent });
-    personalLines.push({ id: `ps_d_${ts}`, text: "\u2500".repeat(44), type: "divider" });
-
-    setLiveLines((prev) => [...prev, ...personalLines].slice(-50));
+    const personalLines: TerminalLine[] = [
+      { id: `ps_p_${ts}`, text: `stats --collector "${selectedCollectorName}"`, type: "prompt" },
+      { id: `ps_h_${ts}`, text: `PERSONAL STATS: ${normalizeCollectorName(selectedCollectorName)}`, type: "header" },
+      { id: `ps_1_${ts}`, text: `Total Assigned:     ${stats.totalAssigned}`, type: "data", color: colors.textPrimary },
+      { id: `ps_2_${ts}`, text: `Total Completed:    ${stats.totalCompleted}`, type: "data", color: colors.terminalGreen },
+      { id: `ps_3_${ts}`, text: `Hours Logged:       ${stats.totalLoggedHours.toFixed(1)}h`, type: "data", color: colors.accentLight },
+      { id: `ps_4_${ts}`, text: `Completion Rate:    ${stats.completionRate.toFixed(0)}%`, type: "data", color: colors.terminalGreen },
+      { id: `ps_5_${ts}`, text: `Weekly Hours:       ${stats.weeklyLoggedHours.toFixed(1)}h`, type: "data", color: colors.accent },
+      { id: `ps_d_${ts}`, text: "\u2500".repeat(44), type: "divider" },
+    ];
+    setLiveLines(prev => [...prev, ...personalLines].slice(-50));
   }, [stats, selectedCollectorName, colors]);
 
   const handleToggleTheme = useCallback(() => {
@@ -570,13 +517,9 @@ export default function LiveScreen() {
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.brandRow}>
-            <Animated.Text style={[styles.brandText, {
-              color: colors.accent,
-              fontFamily: FONT_MONO,
-              opacity: glowAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0.7, 1] }),
-            }]}>
+            <Text style={[styles.brandText, { color: colors.accent, fontFamily: FONT_MONO }]}>
               TASKFLOW
-            </Animated.Text>
+            </Text>
             <View style={[styles.liveBadge, {
               backgroundColor: isOnline ? livePillColor + '14' : colors.cancel + '14',
               borderColor: isOnline ? livePillColor + '40' : colors.cancel + '40',

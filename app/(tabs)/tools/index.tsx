@@ -27,35 +27,20 @@ import {
   BarChart3,
   LayoutDashboard,
   ExternalLink,
-  Palette,
   Database,
   Zap,
   Timer,
   Shield,
   Activity,
   FileText,
-  Users,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
-import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { useTheme } from "../../../providers/ThemeProvider";
 import { useCollection } from "../../../providers/CollectionProvider";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAdminDashboardData } from "../../../services/googleSheets";
 import SelectPicker from "../../../components/SelectPicker";
-
-if (Platform.OS !== "web") {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-}
 
 const FONT_MONO = Platform.select({ ios: "Courier New", android: "monospace", default: "monospace" });
 
@@ -90,7 +75,7 @@ const sectionStyles = StyleSheet.create({
 });
 
 function CompactTimer() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [selectedMinutes, setSelectedMinutes] = useState(10);
   const [secondsLeft, setSecondsLeft] = useState(10 * 60);
   const [running, setRunning] = useState(false);
@@ -104,28 +89,14 @@ function CompactTimer() {
   const seconds = secondsLeft % 60;
 
   useEffect(() => {
-    if (Platform.OS !== "web") {
-      Notifications.requestPermissionsAsync().catch(() => {});
-    }
-  }, []);
-
-  useEffect(() => {
     Animated.timing(progressAnim, { toValue: progress * 100, duration: 250, useNativeDriver: false }).start();
   }, [progress, progressAnim]);
 
-  const fireAlarm = useCallback(async () => {
+  const fireAlarm = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 400);
     setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 800);
-    if (Platform.OS !== "web") {
-      try {
-        await Notifications.scheduleNotificationAsync({
-          content: { title: "Timer Complete", body: `Your ${selectedMinutes} minute timer has finished!`, sound: true },
-          trigger: null,
-        });
-      } catch (e) { console.log("[Timer] Notification error:", e); }
-    }
-  }, [selectedMinutes]);
+  }, []);
 
   const start = useCallback(() => {
     if (finished) { setFinished(false); setSecondsLeft(selectedMinutes * 60); }
@@ -148,7 +119,7 @@ function CompactTimer() {
   useEffect(() => {
     if (running && secondsLeft > 0) {
       intervalRef.current = setInterval(() => {
-        setSecondsLeft((s) => {
+        setSecondsLeft(s => {
           if (s <= 1) { setRunning(false); setFinished(true); fireAlarm(); return 0; }
           return s - 1;
         });
@@ -176,7 +147,7 @@ function CompactTimer() {
         {finished && <Text style={[timerStyles.doneTag, { color: colors.cancel, fontFamily: FONT_MONO }]}>DONE</Text>}
 
         <View style={timerStyles.presets}>
-          {TIMER_PRESETS.map((p) => (
+          {TIMER_PRESETS.map(p => (
             <TouchableOpacity
               key={p.mins}
               style={[timerStyles.presetChip, {
@@ -322,6 +293,29 @@ const adminStyles = StyleSheet.create({
   loadingText: { fontSize: 12 },
 });
 
+function QuickCard({ title, subtitle, icon, iconBg, onPress, testID, colors }: {
+  title: string; subtitle: string; icon: React.ReactNode; iconBg: string;
+  onPress: () => void; testID: string; colors: ReturnType<typeof useTheme>["colors"];
+}) {
+  const handlePress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  }, [onPress]);
+
+  return (
+    <View style={styles.quickCardWrap}>
+      <TouchableOpacity
+        style={[styles.quickCard, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}
+        onPress={handlePress} activeOpacity={0.85} testID={testID}
+      >
+        <View style={[styles.quickIcon, { backgroundColor: iconBg }]}>{icon}</View>
+        <Text style={[styles.quickTitle, { color: colors.textPrimary }]}>{title}</Text>
+        <Text style={[styles.quickSub, { color: colors.textMuted }]}>{subtitle}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function ToolsScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const {
@@ -330,34 +324,30 @@ export default function ToolsScreen() {
   } = useCollection();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, speed: 20, bounciness: 4, useNativeDriver: true }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+  }, [fadeAnim]);
 
-  const collectorOptions = useMemo(() => collectors.map((c) => ({ value: c.name, label: c.name })), [collectors]);
+  const collectorOptions = useMemo(() => collectors.map(c => ({ value: c.name, label: c.name })), [collectors]);
 
   const rigOptions = useMemo(() => {
     if (!selectedCollector || !selectedCollector.rigs.length) return [];
-    return selectedCollector.rigs.map((r) => ({ value: r, label: r }));
+    return selectedCollector.rigs.map(r => ({ value: r, label: r }));
   }, [selectedCollector]);
 
   const openSlack = useCallback(() => {
     const slackDeepLink = "slack://open";
     const slackWeb = "https://slack.com/";
     if (Platform.OS === "web") { Linking.openURL(slackWeb); }
-    else { Linking.canOpenURL(slackDeepLink).then((s) => { Linking.openURL(s ? slackDeepLink : slackWeb); }).catch(() => Linking.openURL(slackWeb)); }
+    else { Linking.canOpenURL(slackDeepLink).then(s => Linking.openURL(s ? slackDeepLink : slackWeb)).catch(() => Linking.openURL(slackWeb)); }
   }, []);
 
   const openHubstaff = useCallback(() => {
     const hubstaffDeepLink = "hubstaff://";
     const hubstaffWeb = "https://app.hubstaff.com/";
     if (Platform.OS === "web") { Linking.openURL(hubstaffWeb); }
-    else { Linking.canOpenURL(hubstaffDeepLink).then((s) => { Linking.openURL(s ? hubstaffDeepLink : hubstaffWeb); }).catch(() => Linking.openURL(hubstaffWeb)); }
+    else { Linking.canOpenURL(hubstaffDeepLink).then(s => Linking.openURL(s ? hubstaffDeepLink : hubstaffWeb)).catch(() => Linking.openURL(hubstaffWeb)); }
   }, []);
 
   const openAirtableRigIssue = useCallback(() => {
@@ -387,7 +377,7 @@ export default function ToolsScreen() {
   const cardStyle = [styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }];
 
   return (
-    <Animated.View style={[styles.flex, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <Animated.View style={[styles.flex, { opacity: fadeAnim }]}>
       <ScrollView
         style={[styles.container, { backgroundColor: colors.bg }]}
         contentContainerStyle={styles.content}
@@ -520,39 +510,6 @@ export default function ToolsScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </Animated.View>
-  );
-}
-
-function QuickCard({ title, subtitle, icon, iconBg, onPress, testID, colors }: {
-  title: string; subtitle: string; icon: React.ReactNode; iconBg: string;
-  onPress: () => void; testID: string; colors: ReturnType<typeof useTheme>["colors"];
-}) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 0.94, useNativeDriver: true, speed: 60, bounciness: 4 }).start();
-  }, [scaleAnim]);
-
-  const onPressOut = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 40, bounciness: 6 }).start();
-  }, [scaleAnim]);
-
-  const handlePress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress();
-  }, [onPress]);
-
-  return (
-    <Animated.View style={[styles.quickCardWrap, { transform: [{ scale: scaleAnim }] }]}>
-      <TouchableOpacity
-        style={[styles.quickCard, { backgroundColor: colors.bgCard, borderColor: colors.border, shadowColor: colors.shadow }]}
-        onPress={handlePress} onPressIn={onPressIn} onPressOut={onPressOut} activeOpacity={0.9} testID={testID}
-      >
-        <View style={[styles.quickIcon, { backgroundColor: iconBg }]}>{icon}</View>
-        <Text style={[styles.quickTitle, { color: colors.textPrimary }]}>{title}</Text>
-        <Text style={[styles.quickSub, { color: colors.textMuted }]}>{subtitle}</Text>
-      </TouchableOpacity>
     </Animated.View>
   );
 }
