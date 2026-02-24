@@ -233,6 +233,10 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
 
       console.log("[Provider] weeklyLog:", weeklyLogEntries.length, "caTagged:", caTaggedEntries.length, "collectors:", rawCollectors.length);
 
+      const mondayStart = getWeekStart();
+      const mondayStr = mondayStart.toISOString().slice(0, 10);
+      console.log("[Provider] Client Monday week start:", mondayStr);
+
       const mergedCollectors = mergeCollectors(rawCollectors);
 
       // Build rig-based location fallback from Collectors sheet
@@ -241,10 +245,20 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
         rigLocationFallback.set(c.name.toLowerCase(), getLocationByRigs(c.rigs));
       }
 
+      const filteredCaTagged = caTaggedEntries.filter((row) => {
+        if (!row.date) return true;
+        return row.date >= mondayStr;
+      });
+      const filteredWeeklyLog = weeklyLogEntries.filter((entry) => {
+        if (!entry.assignedDate) return true;
+        return entry.assignedDate >= mondayStr;
+      });
+      console.log("[Provider] After Monday filter — weeklyLog:", filteredWeeklyLog.length, "caTagged:", filteredCaTagged.length);
+
       const caTaggedSites = new Map<string, Set<"SF" | "MX">>();
       const caTaggedHours = new Map<string, number>();
       const caTaggedTasks = new Map<string, number>();
-      for (const row of caTaggedEntries) {
+      for (const row of filteredCaTagged) {
         const name = normalizeCollectorName(row.collector);
         const key = name.toLowerCase();
         if (!caTaggedSites.has(key)) caTaggedSites.set(key, new Set());
@@ -263,7 +277,7 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
         fallbackLocation: "SF" | "MX" | "OTHER";
       }>();
 
-      for (const entry of weeklyLogEntries) {
+      for (const entry of filteredWeeklyLog) {
         const name = normalizeCollectorName(entry.collector);
         const key = name.toLowerCase();
 
@@ -374,7 +388,8 @@ export const [CollectionProvider, useCollection] = createContextHook(() => {
 
   const collectors = useMemo<Collector[]>(() => {
     const raw = collectorQuery.data ?? [];
-    return mergeCollectors(raw);
+    const merged = mergeCollectors(raw);
+    return merged.sort((a, b) => a.name.localeCompare(b.name));
   }, [collectorQuery.data]);
 
   const tasks = useMemo<Task[]>(

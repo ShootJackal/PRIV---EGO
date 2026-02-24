@@ -71,10 +71,22 @@ export default function DashboardScreen() {
   }, [fadeAnim, slideAnim]);
 
   const collectorOptions = useMemo(
-    () => collectors.map((c) => ({
-      value: c.name,
-      label: c.rigs.length > 0 ? `${c.name}  (${c.rigs.join(", ")})` : c.name,
-    })),
+    () => collectors.map((c) => {
+      const sfRigs = c.rigs.filter((r) => /^EGO-PROD-(2|3|4|5|6|9)$/i.test(r.trim()));
+      const loc = sfRigs.length === c.rigs.length && c.rigs.length > 0
+        ? "SF"
+        : sfRigs.length === 0 && c.rigs.length > 0
+        ? "MX"
+        : c.rigs.length > 0
+        ? "SF/MX"
+        : "";
+      const locTag = loc ? ` [${loc}]` : "";
+      const rigList = c.rigs.length > 0 ? `  (${c.rigs.join(", ")})` : "";
+      return {
+        value: c.name,
+        label: `${c.name}${locTag}${rigList}`,
+      };
+    }),
     [collectors]
   );
 
